@@ -1,0 +1,28 @@
+# Keil uVision 编译产物
+Objects/
+Listings/
+RTE/
+
+# uVision GUI 状态文件 (含用户私有布局，不需要版本控制)
+*.uvguix.*
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 临时文件
+nul
+*.bak
+*.tmp
+
+# 文档生成脚本 (中间产物)
+_gen_ch3.py
+_gen_ch456.py
+_gen_content.py
+_gen_docx.py
+_orig_full.txt
+
+# 规划文件
+task_plan.md
+findings.md
+progress.md

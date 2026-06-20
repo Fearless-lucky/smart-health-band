@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//e/keil/keil/UV4/**)",
+      "Read(//e/keil/UV4/**)",
+      "Read(//c/Keil_v5/UV4/**)",
+      "Read(//e/keil/keil/**)",
+      "Bash(\"E:/keil/keil/UV4/UV4.exe\" -r TASK1.uvprojx -j0 -o Objects/build_output.txt)",
+      "Bash(pip install *)"
+    ]
+  }
+}
