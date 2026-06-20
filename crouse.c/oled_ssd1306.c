@@ -5,6 +5,8 @@
 #include "ds1302.h"
 #include "globals.h"
 #include "font5x7.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -105,8 +107,11 @@ void OLED_ShowMainPage(void)
     snprintf(buf, sizeof(buf), "Steps:%d", Get_StepCount());
     OLED_DrawString(0, 2, buf);
 
-    if (g_temp_valid) {
-        snprintf(buf, sizeof(buf), "T:%.1fC", (double)g_temperature);
+    int   valid;
+    float temp;
+    Get_Temperature(&valid, &temp);
+    if (valid) {
+        snprintf(buf, sizeof(buf), "T:%.1fC", (double)temp);
     } else {
         snprintf(buf, sizeof(buf), "T:--.-C");
     }

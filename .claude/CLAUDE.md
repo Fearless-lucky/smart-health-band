@@ -123,7 +123,7 @@ UART2 (PA2=TX, PA3=RX) at 9600 baud. Single-byte command codes: 0x01–0x09 map 
 - **Stack overflow detection** (`configCHECK_FOR_STACK_OVERFLOW=1`): The hook outputs "STACK OVERFLOW: <taskname>" via UART1 at 115200 baud, then spins forever.
 - **I2C error recovery**: On any I2C failure, the bus is reset via full deinit+reinit before returning error. All I2C functions time out after 50ms per operation. I2C lock timeout: 100ms via mutex.
 - **DS18B20 two-step async pattern**: `StartConversion()` (0xCC 0x44) → wait 4×200ms=800ms (≥750ms 12-bit conversion time) → `ReadData()` (0xCC 0xBE + CRC8). The `ds18b20_tick` counter in `vTaskSensors` sequences this across 4 sensor cycles. On the read cycle, `continue` skips `vTaskDelay` so the next conversion starts immediately — the MAX30102 read in that bonus cycle finds 0 new samples (harmless).
-- **DS18B20 CRC**: Returns `-999.0f` on CRC failure; `main.c` checks `> -900.0f` before displaying.
+- **DS18B20 CRC**: `DS18B20_ReadData` returns `-1` on CRC failure, `-2` on bus timeout. `main.c` checks `== 0` for success. The legacy `TEMP_CRC_INVALID` (-999.0f) macro has been removed — it was dead code.
 - **DS1302 self-test**: On boot, `main()` runs `DS1302_SelfTest()` and outputs the result over UART1 (115200) for wiring verification. Also reads and outputs current RTC time.
 - **UART1 bootstrap sequence**: `main()` initializes UART1 at 115200 for debug output, then `HC05_Init(9600)` reinitializes it at HC-05's baud rate.
 - **OERR handling**: `HC05_Process()` and `ASR_ProcessUART()` explicitly clear UART Overrun Error flag on each poll cycle to prevent receive lockup.

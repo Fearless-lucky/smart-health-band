@@ -17,6 +17,12 @@ static volatile int steps   = 0;
 static float ema_hr          = 0.0f;
 static float ema_spo2        = 0.0f;
 
+/* 步态历史 — 文件作用域, 供 Reset_StepCount 一并清零 (见 Step_ProcessAccel 注释) */
+static uint32_t step_last      = 0;
+static uint32_t step_intervals[STEP_HISTORY_LEN];
+static uint8_t  step_hist_idx  = 0;
+static uint8_t  step_hist_cnt  = 0;
+
 static float spo2_cal_A = SPO2_CAL_A;
 static float spo2_cal_B = SPO2_CAL_B;
 
@@ -31,7 +37,8 @@ static float hp_state  = 0.0f;
 static float x_prev    = 0.0f;
 
 static uint32_t peak_times[MAX_PEAKS];
-static uint8_t  peak_count = 0;
+static uint8_t  peak_head  = 0;   /* 下一个写入位置 (环形缓冲) */
+static uint8_t  peak_count = 0;   /* 已存峰值数 (≤ MAX_PEAKS) */
 
 static activity_t activity_state = ACTIVITY_UNKNOWN;
 
@@ -70,25 +77,36 @@ static float calc_std(const float *v, uint16_t n, float mean)
 
 static void add_peak(uint32_t abs_idx)
 {
-    if (peak_count < MAX_PEAKS) {
-        peak_times[peak_count++] = abs_idx;
-    } else {
-        memmove(peak_times, peak_times + 1, (MAX_PEAKS - 1) * sizeof(uint32_t));
-        peak_times[MAX_PEAKS - 1] = abs_idx;
-    }
+    /* 显式环形缓冲: peak_head 推进, peak_count 饱和在 MAX_PEAKS。
+     * 替代旧的 memmove 整体平移方案——O(1) 写入, 且不依赖
+     * "peak_count 永远停在 MAX_PEAKS" 这种隐式约定。 */
+    peak_times[peak_head] = abs_idx;
+    peak_head = (peak_head + 1) % MAX_PEAKS;
+    if (peak_count < MAX_PEAKS) peak_count++;
+}
+
+/* 返回环形缓冲中第 i 个元素 (按写入时间顺序, i=0 最早, i=peak_count-1 最新)。
+ * peak_count 已饱和时, 环形缓冲满, 需从 peak_head 处对齐。 */
+static uint32_t peak_at(uint8_t i)
+{
+    /* 满缓冲时最早的元素就在 peak_head 处; 未满时 peak_head==count, 最早在 0 */
+    uint8_t start = (peak_count == MAX_PEAKS) ? peak_head : 0;
+    return peak_times[(start + i) % MAX_PEAKS];
 }
 
 static int compute_hr(void)
 {
     if (peak_count < 2) return 0;
 
+    /* 取最近 (peak_count-1) 个峰间间隔, 上限 PPG_PEAK_HISTORY_MAX。
+     * 通过 peak_at() 顺序访问环形缓冲, 不再依赖线性下标。 */
     uint32_t n = (peak_count - 1 > PPG_PEAK_HISTORY_MAX)
                  ? PPG_PEAK_HISTORY_MAX : (peak_count - 1);
     uint32_t start = peak_count - 1 - n;
     double sum_period = 0.0;
 
     for (uint32_t k = start; k < start + n; k++) {
-        sum_period += (double)(peak_times[k + 1] - peak_times[k]) / PPG_SAMPLE_RATE;
+        sum_period += (double)(peak_at(k + 1) - peak_at(k)) / PPG_SAMPLE_RATE;
     }
     double avg_period = sum_period / (double)n;
 
@@ -148,8 +166,9 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
             uint32_t abs_idx = ppg_total - N + i;
             uint32_t min_dist = (uint32_t)(PPG_PEAK_MIN_DIST_S * PPG_SAMPLE_RATE);
 
+            /* 最近一个峰 = peak_at(peak_count-1), 经环形缓冲正确索引 */
             if (peak_count == 0 ||
-                abs_idx > peak_times[(peak_count - 1) % MAX_PEAKS] + min_dist) {
+                abs_idx > peak_at(peak_count - 1) + min_dist) {
                 add_peak(abs_idx);
             }
         }
@@ -212,13 +231,14 @@ float Compensate_Temperature(float raw_temp, float ambient_temp)
 
 void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
 {
+    /* grav/thr/shaking_energy/settle_cnt 是自适应基线, 清零反而需要重新稳定,
+     * 故保留为函数内 static (Reset_StepCount 不触碰)。
+     * last_step / step_hist_* / step_intervals 属于步态历史, 需要在归零步数时
+     * 一并清空, 提到文件作用域供 Reset_StepCount 访问。 */
     static float grav            = 0.0f;
     static float thr             = STEP_INIT_THRESH;
-    static uint32_t last_step    = 0;
-    static uint32_t step_intervals[STEP_HISTORY_LEN];
-    static uint8_t  step_hist_idx = 0;
-    static uint8_t  step_hist_cnt = 0;
-    static uint32_t shaking_energy = 0;
+    static float shaking_energy  = 0.0f;
+    static uint8_t settle_cnt    = 0;
 
     uint32_t now = Systick_GetTick();
     float mag = sqrtf((float)ax * ax + (float)ay * ay + (float)az * az);
@@ -230,14 +250,15 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
     thr = STEP_THRESH_EMA * thr + (1.0f - STEP_THRESH_EMA) * fabsf(acc);
 
     /* 前 N 次静默，等待重力和阈值稳定 */
-    static uint8_t settle_cnt = 0;
     if (settle_cnt < STEP_SETTLE_COUNT) { settle_cnt++; return; }
 
-    /* 累积晃动能量 */
-    shaking_energy = (uint32_t)(0.9f * (float)shaking_energy + 0.1f * fabsf(acc));
+    /* 累积晃动能量 (EMA, 系数 0.9/0.1)。必须用 float: uint32_t 会把
+     * 0.1*|acc|(<1) 每次截断为 0, 导致能量永远累积不起来,
+     * ACTIVITY_SHAKING 状态永远无法触发。 */
+    shaking_energy = 0.9f * shaking_energy + 0.1f * fabsf(acc);
 
-    if (acc > thr && (now - last_step) > (uint32_t)STEP_MIN_INTERVAL_MS) {
-        uint32_t interval = now - last_step;
+    if (acc > thr && (now - step_last) > (uint32_t)STEP_MIN_INTERVAL_MS) {
+        uint32_t interval = now - step_last;
 
         step_intervals[step_hist_idx] = interval;
         step_hist_idx = (step_hist_idx + 1) % STEP_HISTORY_LEN;
@@ -246,11 +267,11 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
         taskENTER_CRITICAL();
         steps++;
         taskEXIT_CRITICAL();
-        last_step = now;
+        step_last = now;
     }
 
     /* 运动状态分类 */
-    uint32_t idle_time = now - last_step;
+    uint32_t idle_time = now - step_last;
     if (idle_time > ACTIVITY_IDLE_MS) {
         if (shaking_energy > ACTIVITY_SHAKE_ENERGY)   activity_state = ACTIVITY_SHAKING;
         else                                           activity_state = ACTIVITY_UNKNOWN;
@@ -270,7 +291,13 @@ int  Get_StepCount(void)  { return steps; }
 
 void Reset_StepCount(void)
 {
+    /* 归零步数时必须同步清空步态历史, 否则残留的 step_intervals 会立即
+     * 把活动状态误判为 WALKING/RUNNING, step_last 也会污染 idle_time 判定。
+     * grav/thr/shaking_energy/settle_cnt 是自适应基线, 不清零。 */
     taskENTER_CRITICAL();
-    steps = 0;
+    steps          = 0;
+    step_last      = 0;
+    step_hist_idx  = 0;
+    step_hist_cnt  = 0;
     taskEXIT_CRITICAL();
 }

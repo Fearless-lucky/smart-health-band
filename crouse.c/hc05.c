@@ -5,6 +5,8 @@
 #include "ds1302.h"
 #include "globals.h"
 #include "systick.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include <stdio.h>
 #include <string.h>
 #include "stm32f10x_usart.h"
@@ -102,10 +104,13 @@ void HC05_Process(void)
         int hr    = Get_HeartRate();
         int spo2  = Get_SpO2();
         int steps = Get_StepCount();
-        float temp = g_temp_valid ? (float)g_temperature : 0.0f;
+        int   valid;
+        float temp;
+        Get_Temperature(&valid, &temp);
+        float temp_out = valid ? temp : 0.0f;
         int n = snprintf(txbuf, sizeof(txbuf),
             "{\"hr\":%d,\"spo2\":%d,\"steps\":%d,\"temp\":%.2f}\r\n",
-            hr, spo2, steps, (double)temp);
+            hr, spo2, steps, (double)temp_out);
         if (n > 0) UART1_Send((uint8_t *)txbuf, (uint16_t)n);
     }
 }

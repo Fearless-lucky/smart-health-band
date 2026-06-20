@@ -21,15 +21,20 @@ static void uart_init(USART_TypeDef *usart, uint32_t baud)
 
 static int uart_send(USART_TypeDef *usart, const uint8_t *data, uint16_t len)
 {
-    uint32_t t0 = Systick_GetTick();
+    /* 每字节独立超时 (200ms/字节), 避免长帧发送过程中前几字节
+     * 耗尽总预算导致后续字节截帧。 */
     for (uint16_t i = 0; i < len; i++) {
+        uint32_t t0 = Systick_GetTick();
         USART_SendData(usart, data[i]);
         while (USART_GetFlagStatus(usart, USART_FLAG_TXE) == RESET) {
             if ((Systick_GetTick() - t0) > 200) return -1;
         }
     }
-    while (USART_GetFlagStatus(usart, USART_FLAG_TC) == RESET) {
-        if ((Systick_GetTick() - t0) > 200) return -1;
+    {
+        uint32_t t0 = Systick_GetTick();
+        while (USART_GetFlagStatus(usart, USART_FLAG_TC) == RESET) {
+            if ((Systick_GetTick() - t0) > 200) return -1;
+        }
     }
     return 0;
 }

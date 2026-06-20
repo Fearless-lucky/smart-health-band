@@ -21,6 +21,5 @@
 #define TEMP_AMBIENT_COEFF         0.05f  /* 环境温度修正系数 */
 #define TEMP_OFFSET_MIN            1.0f   /* 最小补偿量 °C */
 #define TEMP_OFFSET_MAX            3.5f   /* 最大补偿量 °C */
-#define TEMP_CRC_INVALID           -999.0f /* CRC 校验失败返回值 */
 
 #endif

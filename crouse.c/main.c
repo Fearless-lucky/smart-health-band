@@ -35,6 +35,17 @@ volatile int    g_temp_valid   = 0;
 volatile int    g_page_advance = 0;
 
 /* ==================================================================
+ * 共享状态访问器 — 原子读取体温快照
+ * ================================================================== */
+void Get_Temperature(int *valid, float *temp)
+{
+    taskENTER_CRITICAL();
+    *valid = g_temp_valid;
+    *temp  = g_temperature;
+    taskEXIT_CRITICAL();
+}
+
+/* ==================================================================
  * 任务: 传感器采集 (200ms周期, 优先级3)
  *
  * 轮询读取所有传感器:
@@ -57,12 +68,16 @@ static void vTaskSensors(void *pvParameters)
             MAX30102_ReadData(NULL, NULL, &count);
         }
 
-        /* MPU6050 — 读加速度和芯片温度 (一次 I2C 批量读取 8 字节) */
+        /* MPU6050 — 读加速度和芯片温度 (一次 I2C 批量读取 8 字节)
+         * mpu_ok 标志: 仅在温度传感器可用时才标记体温有效,
+         * 避免用 fallback 25°C 补偿的假数据被外界当作真实体温。 */
         int16_t ax = 0, ay = 0, az = 0;
         float   chip_temp = MPU6050_TEMP_FALLBACK;
+        int     mpu_ok   = 0;
 
         if (MPU6050_ReadData(&ax, &ay, &az, &chip_temp) == 0) {
             Step_ProcessAccel(ax, ay, az);
+            mpu_ok = 1;
         }
 
         /* DS18B20 — 两步操作: 启动转换 → 等待 → 读取 */
@@ -72,7 +87,7 @@ static void vTaskSensors(void *pvParameters)
             float skin_temp;
             if (DS18B20_ReadData(&skin_temp) == 0) {
                 g_temperature = Compensate_Temperature(skin_temp, chip_temp);
-                g_temp_valid  = 1;
+                g_temp_valid  = mpu_ok;  /* 仅 MPU6050 在线时才标有效 */
             }
             ds18b20_tick = 0;
             continue;   /* 跳过 vTaskDelay, 立即开始下一轮 */
@@ -118,17 +133,11 @@ static void vTaskDisplay(void *pvParameters)
             case 3: /* 体温 */
                 {
                     char buf[16];
-                    OLED_Clear();
-                    OLED_DrawString(0, 1, "BodyTemp:");
-                    /* g_temperature (float) 和 g_temp_valid 由 Sensors 任务写,
-                     * Cortex-M3 上 float 读写非原子, 用临界区取一致性快照,
-                     * 避免 valid 与温度值不匹配或 float 撕裂。 */
                     int   valid;
                     float temp;
-                    taskENTER_CRITICAL();
-                    valid = g_temp_valid;
-                    temp  = g_temperature;
-                    taskEXIT_CRITICAL();
+                    OLED_Clear();
+                    OLED_DrawString(0, 1, "BodyTemp:");
+                    Get_Temperature(&valid, &temp);
                     if (valid) {
                         snprintf(buf, sizeof(buf), "%.1f C", (double)temp);
                     } else {

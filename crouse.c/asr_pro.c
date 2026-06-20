@@ -43,8 +43,11 @@ void ASR_ProcessUART(void)
         case ASR_CMD_TEMP: {
             OLED_Clear();
             char buf[16];
-            if (g_temp_valid) {
-                snprintf(buf, sizeof(buf), "T:%.1fC", (double)g_temperature);
+            int   valid;
+            float temp;
+            Get_Temperature(&valid, &temp);
+            if (valid) {
+                snprintf(buf, sizeof(buf), "T:%.1fC", (double)temp);
             } else {
                 snprintf(buf, sizeof(buf), "T:--.-C");
             }
