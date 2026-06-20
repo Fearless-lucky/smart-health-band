@@ -4,6 +4,6 @@
 #include <stdint.h>
 
 void Keys_Init(void);
-int  Key_Get(void);   /* KEY0 (PE4) — 翻页, 低电平有效 */
+int  Key_Get(void);   /* PA0 (WK_UP) — 翻页, 高电平有效 */
 
 #endif

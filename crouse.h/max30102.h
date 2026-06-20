@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* 通信: I2C1, PB6=SCL, PB7=SDA, 8-bit write 地址 0xAE (7-bit=0x57) */
+/* 通信: I2C1, PB8=SCL, PB9=SDA (Remap), 8-bit write 地址 0xAE (7-bit=0x57) */
 
 int  MAX30102_Init(void);
 /* 返回: 0=成功, -1=I2C 通信失败 */

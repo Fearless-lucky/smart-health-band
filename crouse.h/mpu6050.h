@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* 通信: I2C1, PB6=SCL, PB7=SDA (与 MAX30102 共享), 8-bit write 地址 0xD0 (7-bit=0x68) */
+/* 通信: I2C1, PB8=SCL, PB9=SDA (Remap, 与 MAX30102 共享), 8-bit write 地址 0xD0 (7-bit=0x68) */
 
 int  MPU6050_Init(void);
 /* 返回: 0=成功, -1=I2C 通信失败 */
