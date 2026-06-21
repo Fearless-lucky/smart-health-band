@@ -5,9 +5,7 @@
 #include "task.h"
 #include "algorithms.h"
 #include "oled_ssd1306.h"
-#include "ds1302.h"
-#include "globals.h"
-#include <stdio.h>
+#include "globals.h"   /* g_page_advance */
 
 void ASR_Init(uint32_t baud)
 {
@@ -40,34 +38,12 @@ void ASR_ProcessUART(void)
         case ASR_CMD_SPO2:
             OLED_ShowSpO2(Get_SpO2());
             break;
-        case ASR_CMD_TEMP: {
-            OLED_Clear();
-            char buf[16];
-            int   valid;
-            float temp;
-            Get_Temperature(&valid, &temp);
-            if (valid) {
-                snprintf(buf, sizeof(buf), "T:%.1fC", (double)temp);
-            } else {
-                snprintf(buf, sizeof(buf), "T:--.-C");
-            }
-            OLED_DrawString(0, 2, buf);
-            OLED_Flush();
+        case ASR_CMD_TEMP:
+            OLED_ShowTemperature();
             break;
-        }
-        case ASR_CMD_TIME: {
-            OLED_Clear();
-            rtc_time_t tm;
-            DS1302_ReadTime(&tm);
-            char buf[16];
-            OLED_DrawString(0, 0, "-- Time --");
-            snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tm.hour, tm.min, tm.sec);
-            OLED_DrawString(0, 2, buf);
-            snprintf(buf, sizeof(buf), "%02d/%02d/20%02d", tm.day, tm.month, tm.year);
-            OLED_DrawString(0, 4, buf);
-            OLED_Flush();
+        case ASR_CMD_TIME:
+            OLED_ShowTime();
             break;
-        }
         case ASR_CMD_MAIN:
             OLED_ShowMainPage();
             break;
@@ -79,19 +55,9 @@ void ASR_ProcessUART(void)
             }
             break;
         }
-        case ASR_CMD_ACTIVITY: {
-            OLED_Clear();
-            const char *label;
-            switch (Get_ActivityState()) {
-            case ACTIVITY_WALKING: label = "Walking"; break;
-            case ACTIVITY_RUNNING: label = "Running"; break;
-            case ACTIVITY_SHAKING: label = "Shaking"; break;
-            default:              label = "Resting";  break;
-            }
-            OLED_DrawString(0, 2, label);
-            OLED_Flush();
+        case ASR_CMD_ACTIVITY:
+            OLED_ShowActivity(Get_ActivityState());
             break;
-        }
         default:
             break;
         }

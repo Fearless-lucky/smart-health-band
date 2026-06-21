@@ -133,18 +133,25 @@ UART2 (PA2=TX, PA3=RX) at 9600 baud. Single-byte command codes: 0x01–0x09 map 
 
 ## Known Concurrency Gotchas
 
-### `g_temperature` / `g_temp_valid` TOCTOU reads (3 sites, non-critical)
+### `g_temperature` / `g_temp_valid` atomic access (resolved)
 
-The **correct pattern** is in `vTaskDisplay` ([main.c:130-135](crouse.c/main.c)) — uses `taskENTER_CRITICAL()` to atomically read both `g_temp_valid` and `g_temperature` together. On Cortex-M3, `float` reads are not guaranteed atomic, and the valid flag and value can become inconsistent if the Sensors task writes between the check and the read.
+All cross-task reads of body temperature go through `Get_Temperature(int *valid, float *temp)` ([main.c](crouse.c/main.c)), which wraps both reads in `taskENTER_CRITICAL()`/`taskEXIT_CRITICAL()`. This atomically snapshots the valid flag and the float value together, so the reader never sees a mismatched pair. Callers: `vTaskDisplay` (case 3), `HC05_Process`, `OLED_ShowMainPage`, `OLED_ShowTemperature`. The Sensors task is the sole writer (writes `g_temperature` + `g_temp_valid` back-to-back).
 
-**Sites that lack critical-section protection** (TOCTOU: checking valid, then reading temperature without atomicity):
-- [hc05.c:105](crouse.c/hc05.c) — `float temp = g_temp_valid ? (float)g_temperature : 0.0f;`
-- [asr_pro.c:42-43](crouse.c/asr_pro.c) — `if (g_temp_valid) { ... g_temperature; }`
-- [oled_ssd1306.c:108-109](crouse.c/oled_ssd1306.c) — `if (g_temp_valid) { ... g_temperature; }`
+### OLED `framebuf` mutex (resolved)
 
-**Additionally**, the `(float)` cast in `hc05.c:105` strips the `volatile` qualifier, potentially allowing the compiler to optimize away the actual read from the volatile variable. Should use a plain local assignment: `float t = g_temperature;`
+`oled_ssd1306.c` guards each `OLED_Show*` sequence (Clear → DrawString → Flush) with `g_oled_mutex` (`xSemaphoreTake`/`Give`, 100ms timeout). This prevents `vTaskDisplay` and `vTaskVoice` (both prio 2, time-sliced) from interleaving framebuffer mutations and producing garbled output. Low-level `OLED_Clear`/`OLED_DrawChar`/`OLED_DrawString`/`OLED_Flush` are deliberately unlocked — they are only ever called from inside a locked `Show*` function. External callers must use the `Show*` wrappers, never assemble Clear+Draw+Flush by hand.
 
-**Risk assessment**: LOW. Worst case is displaying/transmitting a stale temperature value for one cycle (20ms–200ms). The valid flag prevents displaying corrupted uninitialized data.
+### IWDG watchdog (new)
+
+`IWDG_Init()` is called in `main()` just before `vTaskStartScheduler()` (LSI 40kHz / 256 prescaler / reload 625 ≈ 4s timeout). `vTaskSensors` calls `IWDG_Feed()` at the top of every loop iteration, covering both the normal `vTaskDelay` path and the DS18B20 `continue` path. Any bus lockup or task hang that stops feeding for 4s triggers a full system reset — the desired recovery behavior for a wearable. `Assert_Handler` and `vApplicationStackOverflowHook` intentionally do NOT feed the watchdog, so fatal faults self-reset within 4s.
+
+### `configASSERT` diagnostics (updated)
+
+`FreeRTOSConfig.h` defines `configASSERT(x)` to call `Assert_Handler(__FILE__, __LINE__)` (defined in `main.c`), which prints `"ASSERT FAIL: <file>:<line>"` via UART1 (re-init to 115200 as a fallback) then enters an infinite loop. Combined with IWDG, an assertion failure logs its location and resets within 4s — far better than the previous silent `for(;;)`.
+
+### `configUSE_TIMERS` disabled
+
+Set to `0` in `FreeRTOSConfig.h`. The project uses no software timers (HC05 telemetry timing is done via `last_report_tick` polling). Disabling frees the Timer service task (256-word stack + TCB + command queue ≈ 1.2KB heap).
 
 ### `Get_HeartRate()` / `Get_SpO2()` / `Get_StepCount()` reads without lock
 

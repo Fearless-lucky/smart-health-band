@@ -260,17 +260,24 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
     if (acc > thr && (now - step_last) > (uint32_t)STEP_MIN_INTERVAL_MS) {
         uint32_t interval = now - step_last;
 
+        /* step_intervals / step_hist_idx / step_hist_cnt 与 steps 同属
+         * "会被 Reset_StepCount 清零的共享态", 整段进临界区, 不再依赖
+         * "Reset_StepCount (Voice, prio 2) 优先级低于本函数 (Sensors, prio 3)"
+         * 的隐式约定——未来若调整任务优先级, 此处仍正确。 */
+        taskENTER_CRITICAL();
         step_intervals[step_hist_idx] = interval;
         step_hist_idx = (step_hist_idx + 1) % STEP_HISTORY_LEN;
         if (step_hist_cnt < STEP_HISTORY_LEN) step_hist_cnt++;
-
-        taskENTER_CRITICAL();
         steps++;
-        taskEXIT_CRITICAL();
         step_last = now;
+        taskEXIT_CRITICAL();
     }
 
-    /* 运动状态分类 */
+    /* 运动状态分类 — 读 step_hist_cnt / step_intervals 做浮点运算。
+     * 这段读不进临界区: 本函数运行于 Sensors 任务 (prio 3, 最高用户优先级),
+     * 没有用户任务能抢占它; 能抢占的只有 ISR, 而 ISR 不触碰这些变量。
+     * 故读到的值要么是上面刚写入的, 要么是上一轮的, 不会撕裂。
+     * 把浮点运算留在临界区外, 避免长时关中断影响 tick/响应。 */
     uint32_t idle_time = now - step_last;
     if (idle_time > ACTIVITY_IDLE_MS) {
         if (shaking_energy > ACTIVITY_SHAKE_ENERGY)   activity_state = ACTIVITY_SHAKING;

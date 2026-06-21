@@ -17,6 +17,7 @@
 #include "asr_pro.h"
 #include "algorithms.h"
 #include "keys.h"
+#include "iwdg.h"
 #include "globals.h"
 #include <stdio.h>
 #include <string.h>
@@ -60,6 +61,11 @@ static void vTaskSensors(void *pvParameters)
     static uint8_t ds18b20_tick = 0;
 
     for (;;) {
+        /* 喂狗: IWDG 4s 超时, 正常每轮 ≤ 1s, 余量充足。
+         * 放在循环顶部保证两条出口路径 (正常 vTaskDelay / DS18B20 continue)
+         * 都能在每轮触发, 不会因 continue 跳过。 */
+        IWDG_Feed();
+
         /* MAX30102 — 读 FIFO, 内部自动调用 PPG_ProcessSamples()
          * 传 NULL: 原始样本已在驱动内部送入 PPG 算法层, 这里无需拷贝,
          * 避免在任务栈上分配 1KB 缓冲区 (Sensors 栈仅 2KB)。 */
@@ -131,37 +137,10 @@ static void vTaskDisplay(void *pvParameters)
                 OLED_ShowSteps(Get_StepCount());
                 break;
             case 3: /* 体温 */
-                {
-                    char buf[16];
-                    int   valid;
-                    float temp;
-                    OLED_Clear();
-                    OLED_DrawString(0, 1, "BodyTemp:");
-                    Get_Temperature(&valid, &temp);
-                    if (valid) {
-                        snprintf(buf, sizeof(buf), "%.1f C", (double)temp);
-                    } else {
-                        snprintf(buf, sizeof(buf), "--.- C");
-                    }
-                    OLED_DrawString(0, 3, buf);
-                    OLED_Flush();
-                }
+                OLED_ShowTemperature();
                 break;
             case 4: /* 时间 */
-                {
-                    rtc_time_t tm;
-                    DS1302_ReadTime(&tm);
-                    char buf[20];
-                    OLED_Clear();
-                    OLED_DrawString(0, 0, "-- Time --");
-                    snprintf(buf, sizeof(buf), "%02d:%02d:%02d",
-                             tm.hour, tm.min, tm.sec);
-                    OLED_DrawString(0, 2, buf);
-                    snprintf(buf, sizeof(buf), "%02d/%02d/20%02d",
-                             tm.day, tm.month, tm.year);
-                    OLED_DrawString(0, 4, buf);
-                    OLED_Flush();
-                }
+                OLED_ShowTime();
                 break;
             default:
                 break;
@@ -212,6 +191,31 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
         UART1_Send((const uint8_t *)pcTaskName, (uint16_t)strlen(pcTaskName));
     }
     UART1_Send((const uint8_t *)"\r\n", 2);
+    for (;;) {}
+}
+
+/* ==================================================================
+ * configASSERT 钩子 — FreeRTOS 内部断言失败时打印位置后死循环
+ *
+ * 注意: configASSERT 可能在 (1) 调度器启动前 (2) UART1 已被 HC05_Init
+ * 切到 9600 的运行期 两种情形下触发。
+ *   - 情形 1: UART1 未初始化, 必须先 UART1_Init(115200) 才能打印;
+ *   - 情形 2: UART1 已是 9600, 重新 Init(115200) 只是临时切波特率,
+ *             反正随后即死循环, 不影响蓝牙。
+ * 死循环期间 IWDG 不再被喂狗 → 4s 后系统复位, 自动尝试恢复。
+ * ================================================================== */
+void Assert_Handler(const char *file, int line)
+{
+    taskDISABLE_INTERRUPTS();
+    UART1_Init(115200);
+    const char *prefix = "ASSERT FAIL: ";
+    UART1_Send((const uint8_t *)prefix, (uint16_t)strlen(prefix));
+    if (file) {
+        UART1_Send((const uint8_t *)file, (uint16_t)strlen(file));
+    }
+    char buf[16];
+    int n = snprintf(buf, sizeof(buf), ":%d\r\n", line);
+    if (n > 0) UART1_Send((const uint8_t *)buf, (uint16_t)n);
     for (;;) {}
 }
 
@@ -276,7 +280,13 @@ int main(void)
     xTaskCreate(vTaskVoice,     "Voice",   384, NULL, 2, NULL);
     xTaskCreate(vTaskBluetooth, "BT",      384, NULL, 2, NULL);
 
-    /* ===== 第9步: 启动调度器 ===== */
+    /* ===== 第9步: 启动独立看门狗 (4s 超时) =====
+     * 放在所有初始化完成后、调度器启动前。一旦开启无法关闭,
+     * 由 vTaskSensors 每周期喂狗。若调度器未能启动 (configASSERT 触发等),
+     * 看门狗会在 4s 后复位——但这正是我们想要的故障恢复行为。 */
+    IWDG_Init();
+
+    /* ===== 第10步: 启动调度器 ===== */
     vTaskStartScheduler();
 
     /* 永远不会执行到这里 */
