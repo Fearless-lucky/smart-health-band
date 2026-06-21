@@ -129,41 +129,108 @@ void OLED_Flush(void)
 }
 
 /* ============================================================
- * 上层显示函数 — 每个整段 (Clear+Draw+Flush) 用互斥锁保护,
- * 防止 Display 任务与 Voice 任务交叉刷新导致花屏。
- * 取不到锁直接返回 (放弃本次刷新), 调用方周期性重试即可。
+ * 像素级绘图原语 + 居中排版工具
+ * ============================================================ */
+
+/* 设置单个像素 (x: 0-127, y: 0-63) */
+static void oled_setpixel(uint8_t x, uint8_t y)
+{
+    if (x > 127 || y > 63) return;
+    framebuf[y / 8][x] |= (1 << (y % 8));
+    dirty[y / 8] = 1;
+}
+
+/* 画一条贯穿整屏宽度的水平线 */
+static void oled_hline(uint8_t y)
+{
+    if (y > 63) return;
+    uint8_t page = y / 8;
+    uint8_t bit  = 1 << (y % 8);
+    for (uint8_t x = 0; x < 128; x++) framebuf[page][x] |= bit;
+    dirty[page] = 1;
+}
+
+/* 2 倍放大绘制单字符 (10×14 px, 占 2 个 page) */
+static void oled_drawchar_big(uint8_t x, uint8_t page, char c)
+{
+    uint8_t idx;
+    if ((unsigned char)c < 32 || (unsigned char)c > 126) idx = 0;
+    else idx = (unsigned char)c - 32;
+
+    uint8_t base_y = page * 8;
+    for (uint8_t col = 0; col < 5; col++) {
+        uint8_t col_data = font5x7[idx][col];
+        for (uint8_t bit = 0; bit < 7; bit++) {
+            if (col_data & (1 << bit)) {
+                uint8_t px = x + col * 2;
+                uint8_t py = base_y + bit * 2;
+                oled_setpixel(px,     py);
+                oled_setpixel(px + 1, py);
+                oled_setpixel(px,     py + 1);
+                oled_setpixel(px + 1, py + 1);
+            }
+        }
+    }
+}
+
+/* 小字体居中绘制 (6px/字符) */
+static void oled_drawstr_center(uint8_t page, const char *s)
+{
+    uint8_t len = 0;
+    while (s[len]) len++;
+    if (len == 0) return;
+    uint8_t x = (128 - len * 6) / 2;
+    OLED_DrawString(x, page, s);
+}
+
+/* 2 倍放大字体居中绘制 (12px/字符, 占 2 page) */
+static void oled_drawstr_big_center(uint8_t page, const char *s)
+{
+    uint8_t len = 0;
+    while (s[len]) len++;
+    if (len == 0) return;
+    uint8_t x = (128 - len * 12) / 2;
+    for (uint8_t i = 0; i < len; i++)
+        oled_drawchar_big(x + i * 12, page, s[i]);
+}
+
+/* ============================================================
+ * 上层显示函数 — 统一布局: 标题(居中) → 分隔线 → 大号数值(居中)
+ * → 单位(居中) → 副标题(居中) → 底部分隔线。
+ * 每个整段 (Clear+Draw+Flush) 用互斥锁保护。
  * ============================================================ */
 
 void OLED_ShowMainPage(void)
 {
     if (oled_lock() != 0) return;
-    char buf[20];
+    char buf[24];
 
     OLED_Clear();
-    snprintf(buf, sizeof(buf), "HR:%d", Get_HeartRate());
-    OLED_DrawString(0, 0, buf);
-
-    snprintf(buf, sizeof(buf), "SpO2:%d%%", Get_SpO2());
-    OLED_DrawString(0, 1, buf);
-
-    snprintf(buf, sizeof(buf), "Steps:%d", Get_StepCount());
-    OLED_DrawString(0, 2, buf);
+    oled_drawstr_center(0, "== Smart Band ==");
+    oled_hline(8);
 
     int   valid;
     float temp;
     Get_Temperature(&valid, &temp);
-    if (valid) {
-        snprintf(buf, sizeof(buf), "T:%.1fC", (double)temp);
-    } else {
-        snprintf(buf, sizeof(buf), "T:--.-C");
-    }
-    OLED_DrawString(0, 3, buf);
+
+    snprintf(buf, sizeof(buf), "HR:%d  SpO2:%d%%", Get_HeartRate(), Get_SpO2());
+    oled_drawstr_center(2, buf);
+
+    snprintf(buf, sizeof(buf), "Steps:%d", Get_StepCount());
+    oled_drawstr_center(3, buf);
+
+    if (valid)
+        snprintf(buf, sizeof(buf), "Temp:%.1fC", (double)temp);
+    else
+        snprintf(buf, sizeof(buf), "Temp:--.-C");
+    oled_drawstr_center(4, buf);
 
     rtc_time_t tm;
     DS1302_ReadTime(&tm);
     snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tm.hour, tm.min, tm.sec);
-    OLED_DrawString(0, 5, buf);
+    oled_drawstr_center(6, buf);
 
+    oled_hline(56);
     OLED_Flush();
     oled_unlock();
 }
@@ -173,9 +240,21 @@ void OLED_ShowHeartRate(int hr)
     if (oled_lock() != 0) return;
     char buf[12];
     OLED_Clear();
-    OLED_DrawString(0, 1, "HeartRate:");
-    snprintf(buf, sizeof(buf), "%d bpm", hr);
-    OLED_DrawString(0, 3, buf);
+    oled_drawstr_center(0, "== Heart Rate ==");
+    oled_hline(8);
+
+    if (hr > 0) {
+        snprintf(buf, sizeof(buf), "%d", hr);
+        oled_drawstr_big_center(2, buf);
+        oled_drawstr_center(5, "bpm");
+        oled_drawstr_center(6, "Normal 60-100");
+    } else {
+        oled_drawstr_big_center(2, "--");
+        oled_drawstr_center(5, "bpm");
+        oled_drawstr_center(6, "No signal");
+    }
+
+    oled_hline(56);
     OLED_Flush();
     oled_unlock();
 }
@@ -185,9 +264,21 @@ void OLED_ShowSpO2(int spo2)
     if (oled_lock() != 0) return;
     char buf[12];
     OLED_Clear();
-    OLED_DrawString(0, 1, "SpO2:");
-    snprintf(buf, sizeof(buf), "%d %%", spo2);
-    OLED_DrawString(0, 3, buf);
+    oled_drawstr_center(0, "==== SpO2 ====");
+    oled_hline(8);
+
+    if (spo2 > 0) {
+        snprintf(buf, sizeof(buf), "%d", spo2);
+        oled_drawstr_big_center(2, buf);
+        oled_drawstr_center(5, "%");
+        oled_drawstr_center(6, "Normal 95-100");
+    } else {
+        oled_drawstr_big_center(2, "--");
+        oled_drawstr_center(5, "%");
+        oled_drawstr_center(6, "No signal");
+    }
+
+    oled_hline(56);
     OLED_Flush();
     oled_unlock();
 }
@@ -197,9 +288,15 @@ void OLED_ShowSteps(int steps)
     if (oled_lock() != 0) return;
     char buf[12];
     OLED_Clear();
-    OLED_DrawString(0, 1, "Steps:");
+    oled_drawstr_center(0, "=== Steps ===");
+    oled_hline(8);
+
     snprintf(buf, sizeof(buf), "%d", steps);
-    OLED_DrawString(0, 3, buf);
+    oled_drawstr_big_center(2, buf);
+    oled_drawstr_center(5, "steps");
+    oled_drawstr_center(6, "Keep moving!");
+
+    oled_hline(56);
     OLED_Flush();
     oled_unlock();
 }
@@ -213,14 +310,22 @@ void OLED_ShowTemperature(void)
     int   valid;
     float temp;
     OLED_Clear();
-    OLED_DrawString(0, 1, "BodyTemp:");
+    oled_drawstr_center(0, "== Body Temp ==");
+    oled_hline(8);
+
     Get_Temperature(&valid, &temp);
     if (valid) {
-        snprintf(buf, sizeof(buf), "%.1f C", (double)temp);
+        snprintf(buf, sizeof(buf), "%.1f", (double)temp);
+        oled_drawstr_big_center(2, buf);
+        oled_drawstr_center(5, "C");
+        oled_drawstr_center(6, "Normal 36.0-37.3");
     } else {
-        snprintf(buf, sizeof(buf), "--.- C");
+        oled_drawstr_big_center(2, "--.-");
+        oled_drawstr_center(5, "C");
+        oled_drawstr_center(6, "No signal");
     }
-    OLED_DrawString(0, 3, buf);
+
+    oled_hline(56);
     OLED_Flush();
     oled_unlock();
 }
@@ -233,11 +338,17 @@ void OLED_ShowTime(void)
     char buf[20];
     DS1302_ReadTime(&tm);
     OLED_Clear();
-    OLED_DrawString(0, 0, "-- Time --");
+    oled_drawstr_center(0, "==== Time ====");
+    oled_hline(8);
+
     snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tm.hour, tm.min, tm.sec);
-    OLED_DrawString(0, 2, buf);
-    snprintf(buf, sizeof(buf), "%02d/%02d/20%02d", tm.day, tm.month, tm.year);
-    OLED_DrawString(0, 4, buf);
+    oled_drawstr_big_center(2, buf);
+
+    snprintf(buf, sizeof(buf), "20%02d/%02d/%02d", tm.year, tm.month, tm.day);
+    oled_drawstr_center(5, buf);
+    oled_drawstr_center(6, "Date");
+
+    oled_hline(56);
     OLED_Flush();
     oled_unlock();
 }
@@ -247,14 +358,21 @@ void OLED_ShowActivity(activity_t act)
 {
     if (oled_lock() != 0) return;
     const char *label;
+    const char *hint;
     switch (act) {
-    case ACTIVITY_WALKING: label = "Walking"; break;
-    case ACTIVITY_RUNNING: label = "Running"; break;
-    case ACTIVITY_SHAKING: label = "Shaking"; break;
-    default:              label = "Resting";  break;
+    case ACTIVITY_WALKING: label = "Walking"; hint = "Nice pace!";   break;
+    case ACTIVITY_RUNNING: label = "Running"; hint = "Great job!";   break;
+    case ACTIVITY_SHAKING: label = "Shaking"; hint = "Steady...";    break;
+    default:              label = "Resting"; hint = "Stay active";  break;
     }
     OLED_Clear();
-    OLED_DrawString(0, 2, label);
+    oled_drawstr_center(0, "== Activity ==");
+    oled_hline(8);
+
+    oled_drawstr_big_center(2, label);
+    oled_drawstr_center(6, hint);
+
+    oled_hline(56);
     OLED_Flush();
     oled_unlock();
 }

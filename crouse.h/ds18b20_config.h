@@ -16,10 +16,10 @@
 /* ============================================================
  * 温度补偿参数 — algorithms.c 使用
  * ============================================================ */
-#define TEMP_BASE_OFFSET           2.5f   /* 基础温差 skin→core °C */
+#define TEMP_BASE_OFFSET           3.5f   /* 基础温差 skin→core °C (DS18B20 非密闭测量偏低~1°C, 由 2.5→3.5) */
 #define TEMP_AMBIENT_REF           25.0f  /* 参考环境温度 °C */
 #define TEMP_AMBIENT_COEFF         0.05f  /* 环境温度修正系数 */
-#define TEMP_OFFSET_MIN            1.0f   /* 最小补偿量 °C */
-#define TEMP_OFFSET_MAX            3.5f   /* 最大补偿量 °C */
+#define TEMP_OFFSET_MIN            2.0f   /* 最小补偿量 °C */
+#define TEMP_OFFSET_MAX            4.5f   /* 最大补偿量 °C */
 
 #endif
