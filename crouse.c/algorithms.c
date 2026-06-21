@@ -22,6 +22,10 @@ static uint32_t step_last      = 0;
 static uint32_t step_intervals[STEP_HISTORY_LEN];
 static uint8_t  step_hist_idx  = 0;
 static uint8_t  step_hist_cnt  = 0;
+/* 滞回峰值检测状态: 0=待上升越过阈值, 1=已越过待回落。提到文件作用域
+ * 供 Reset_StepCount 重置, 否则清零步数时若正处于 armed 状态, 下一次
+ * acc 跌回会立即误计一步 (step_last=0 → now-step_last 巨大 → 通过间隔检查)。 */
+static uint8_t  step_armed     = 0;
 
 static float spo2_cal_A = SPO2_CAL_A;
 static float spo2_cal_B = SPO2_CAL_B;
@@ -287,7 +291,6 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
     static float thr             = STEP_INIT_THRESH;
     static float shaking_energy  = 0.0f;
     static uint8_t settle_cnt    = 0;
-    static uint8_t step_armed    = 0;   /* 峰值检测状态: 0=待上升越过阈值, 1=已越过待回落 */
 
     uint32_t now = Systick_GetTick();
     float mag = sqrtf((float)ax * ax + (float)ay * ay + (float)az * az);
@@ -366,11 +369,13 @@ void Reset_StepCount(void)
 {
     /* 归零步数时必须同步清空步态历史, 否则残留的 step_intervals 会立即
      * 把活动状态误判为 WALKING/RUNNING, step_last 也会污染 idle_time 判定。
+     * step_armed 一并清零, 避免滞回状态机在 step_last=0 后误计一步。
      * grav/thr/shaking_energy/settle_cnt 是自适应基线, 不清零。 */
     taskENTER_CRITICAL();
     steps          = 0;
     step_last      = 0;
     step_hist_idx  = 0;
     step_hist_cnt  = 0;
+    step_armed     = 0;
     taskEXIT_CRITICAL();
 }
