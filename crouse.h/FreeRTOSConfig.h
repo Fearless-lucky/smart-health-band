@@ -46,6 +46,11 @@ void Assert_Handler(const char *file, int line);
  * 后死循环。configASSERT 可能在调度器启动前 (UART1 尚未初始化) 触发,
  * 故 Assert_Handler 内部会兜底调用 UART1_Init。 */
 
+/* xTaskGetSchedulerState 被 Systick_GetTick 用于判断调度器是否已启动。
+ * 必须在 INCLUDE 宏中开启, 否则条件编译会移除函数体, 导致链接器报
+ * "Undefined symbol xTaskGetSchedulerState"。 */
+#define INCLUDE_xTaskGetSchedulerState  1
+
 #define INCLUDE_vTaskDelay             1
 #define INCLUDE_vTaskSuspend           1
 #define INCLUDE_vTaskDelete            1
