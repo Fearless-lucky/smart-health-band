@@ -25,7 +25,8 @@
 #define STEP_THRESH_EMA            0.995f /* 阈值自适应指数移动平均系数 */
 #define STEP_INIT_THRESH           500.0f /* 初始阈值 (归一化后 LSB) */
 #define STEP_SETTLE_COUNT          10     /* 前N次静默稳定期 (~2秒) */
-#define STEP_MIN_INTERVAL_MS       400    /* 最小步间隔 ms */
+#define STEP_MIN_INTERVAL_MS       300    /* 最小步间隔 ms (允许~200spm, 兼顾跑步) */
+#define STEP_MIN_THRESH            200.0f /* 自适应阈值下限 (抗静止噪声误计) */
 #define STEP_HISTORY_LEN           8      /* 步间隔历史缓冲区大小 */
 
 /* ---- 运动状态分类 ---- */

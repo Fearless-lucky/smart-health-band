@@ -709,6 +709,11 @@
               <FileType>1</FileType>
               <FilePath>.\crouse.c\uart_hal.c</FilePath>
             </File>
+            <File>
+              <FileName>iwdg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\crouse.c\iwdg.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

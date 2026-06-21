@@ -79,9 +79,12 @@ void OLED_Init(void)
     write_cmd(0xAF);
     OLED_Clear();
 
-    /* 创建 framebuf 互斥锁 (调度器尚未启动, 创建安全) */
-    if (g_oled_mutex == NULL)
+    /* 创建 framebuf 互斥锁 (调度器尚未启动, 创建安全)。
+     * 堆耗尽会返回 NULL → 所有 Show* 静默不显示, 严重到必须用断言捕获。 */
+    if (g_oled_mutex == NULL) {
         g_oled_mutex = xSemaphoreCreateMutex();
+        configASSERT(g_oled_mutex);
+    }
 }
 
 void OLED_Clear(void)

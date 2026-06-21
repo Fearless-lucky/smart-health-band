@@ -89,7 +89,7 @@ static void vTaskSensors(void *pvParameters)
         /* DS18B20 — 两步操作: 启动转换 → 等待 → 读取 */
         if (ds18b20_tick == 0) {
             DS18B20_StartConversion();
-        } else if (ds18b20_tick >= 4) {
+        } else if (ds18b20_tick >= 5) {
             float skin_temp;
             if (DS18B20_ReadData(&skin_temp) == 0) {
                 g_temperature = Compensate_Temperature(skin_temp, chip_temp);

@@ -40,6 +40,10 @@ static uint32_t peak_times[MAX_PEAKS];
 static uint8_t  peak_head  = 0;   /* 下一个写入位置 (环形缓冲) */
 static uint8_t  peak_count = 0;   /* 已存峰值数 (≤ MAX_PEAKS) */
 
+/* 连续低信号窗口计数。stdv 低于阈值时不立即归零, 累计到
+ * PPG_BAD_HOLD_MAX 才判定"真正无信号", 避免单次运动伪影导致读数闪 0。 */
+static uint8_t  ppg_bad_count = 0;
+
 static activity_t activity_state = ACTIVITY_UNKNOWN;
 
 static float alpha_lp;
@@ -103,13 +107,34 @@ static int compute_hr(void)
     uint32_t n = (peak_count - 1 > PPG_PEAK_HISTORY_MAX)
                  ? PPG_PEAK_HISTORY_MAX : (peak_count - 1);
     uint32_t start = peak_count - 1 - n;
-    double sum_period = 0.0;
 
-    for (uint32_t k = start; k < start + n; k++) {
-        sum_period += (double)(peak_at(k + 1) - peak_at(k)) / PPG_SAMPLE_RATE;
+    /* 收集间隔到局部数组 */
+    uint32_t iv[PPG_PEAK_HISTORY_MAX];
+    for (uint32_t k = 0; k < n; k++)
+        iv[k] = peak_at(start + k + 1) - peak_at(start + k);
+
+    /* 插入排序求中值 (n ≤ 8, 开销可忽略) */
+    for (uint32_t i = 1; i < n; i++) {
+        uint32_t key = iv[i];
+        int32_t  j = (int32_t)i - 1;
+        while (j >= 0 && iv[j] > (uint32_t)key) { iv[j + 1] = iv[j]; j--; }
+        iv[j + 1] = key;
     }
-    double avg_period = sum_period / (double)n;
+    uint32_t median = iv[n / 2];
 
+    /* 仅取中值 ±20% 范围内的间隔求平均 — 剔除漏检峰 (间隔翻倍) 和
+     * 误检峰 (间隔减半) 造成的离群间隔, 使 new_hr 稳定不跳变。 */
+    double sum_period = 0.0;
+    uint32_t cnt = 0;
+    for (uint32_t k = 0; k < n; k++) {
+        if (iv[k] >= median - median / 5 && iv[k] <= median + median / 5) {
+            sum_period += (double)iv[k] / PPG_SAMPLE_RATE;
+            cnt++;
+        }
+    }
+    if (cnt == 0) return 0;
+
+    double avg_period = sum_period / (double)cnt;
     if (avg_period < PPG_PERIOD_MIN_S || avg_period > PPG_PERIOD_MAX_S) return 0;
     return (int)(60.0 / avg_period + 0.5);
 }
@@ -174,16 +199,6 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
         }
     }
 
-    int new_hr = compute_hr();
-    if (stdv < PPG_STD_ACTIVE_MIN) {
-        hr = 0;
-        ema_hr = 0.0f;
-    } else if (new_hr > 0) {
-        if (ema_hr == 0.0f) ema_hr = (float)new_hr;
-        ema_hr = PPG_EMA_ALPHA * (float)new_hr + (1.0f - PPG_EMA_ALPHA) * ema_hr;
-        hr = (int)(ema_hr + 0.5f);
-    }
-
     for (uint16_t j = 0; j < N; j++) {
         win_red[j] = ppg_red[(start_idx + j) % PPG_BUF_LEN];
     }
@@ -192,18 +207,51 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
     float mean_red  = calc_mean(win_red, N);
     float std_red   = calc_std(win_red, N, mean_red);
 
-    if (stdv >= PPG_STD_ACTIVE_MIN && mean_ir > 0.0f
-        && std_ir > 0.0f && mean_red > 0.0f) {
+    /* --- 信号质量门控 (HR 和 SpO2 共用) ---
+     * stdv 低于阈值说明手指脱离/压力不足/运动伪影。不立即清零
+     * (否则读数会频繁闪 0), 而是累计连续 PPG_BAD_HOLD_MAX 个坏窗口
+     * 后才判定"真正无信号"。期间保持上一次有效读数。 */
+    if (stdv < PPG_STD_ACTIVE_MIN) {
+        if (ppg_bad_count < 255) ppg_bad_count++;
+        if (ppg_bad_count >= PPG_BAD_HOLD_MAX) {
+            hr = 0;
+            ema_hr = 0.0f;
+            spo2 = 0;
+            ema_spo2 = 0.0f;
+        }
+        return;
+    }
+    ppg_bad_count = 0;
+
+    /* --- HR 更新: compute_hr 已做中值去极值, 此处加变化率限幅防残余跳变 --- */
+    int new_hr = compute_hr();
+    if (new_hr > 0) {
+        if (ema_hr == 0.0f) {
+            ema_hr = (float)new_hr;
+        } else {
+            float target = (float)new_hr;
+            if (target > ema_hr + (float)HR_MAX_DELTA)  target = ema_hr + (float)HR_MAX_DELTA;
+            else if (target < ema_hr - (float)HR_MAX_DELTA) target = ema_hr - (float)HR_MAX_DELTA;
+            ema_hr = PPG_EMA_ALPHA * target + (1.0f - PPG_EMA_ALPHA) * ema_hr;
+        }
+        hr = (int)(ema_hr + 0.5f);
+    }
+
+    /* --- SpO2 更新: EMA + 变化率限幅 --- */
+    if (mean_ir > 0.0f && std_ir > 0.0f && mean_red > 0.0f) {
         float R = (std_red / mean_red) / (std_ir / mean_ir);
         int est = (int)(spo2_cal_A - spo2_cal_B * R + 0.5f);
         if (est < SPO2_CLAMP_MIN)  est = SPO2_CLAMP_MIN;
         if (est > SPO2_CLAMP_MAX)  est = SPO2_CLAMP_MAX;
-        if (ema_spo2 == 0.0f) ema_spo2 = (float)est;
-        ema_spo2 = PPG_EMA_ALPHA * (float)est + (1.0f - PPG_EMA_ALPHA) * ema_spo2;
+        if (ema_spo2 == 0.0f) {
+            ema_spo2 = (float)est;
+        } else {
+            float target = (float)est;
+            if (target > ema_spo2 + (float)SPO2_MAX_DELTA)  target = ema_spo2 + (float)SPO2_MAX_DELTA;
+            else if (target < ema_spo2 - (float)SPO2_MAX_DELTA) target = ema_spo2 - (float)SPO2_MAX_DELTA;
+            ema_spo2 = PPG_EMA_ALPHA * target + (1.0f - PPG_EMA_ALPHA) * ema_spo2;
+        }
         spo2 = (int)(ema_spo2 + 0.5f);
-    } else {
-        spo2 = 0;
-        ema_spo2 = 0.0f;
     }
 }
 
@@ -239,6 +287,7 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
     static float thr             = STEP_INIT_THRESH;
     static float shaking_energy  = 0.0f;
     static uint8_t settle_cnt    = 0;
+    static uint8_t step_armed    = 0;   /* 峰值检测状态: 0=待上升越过阈值, 1=已越过待回落 */
 
     uint32_t now = Systick_GetTick();
     float mag = sqrtf((float)ax * ax + (float)ay * ay + (float)az * az);
@@ -257,20 +306,37 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
      * ACTIVITY_SHAKING 状态永远无法触发。 */
     shaking_energy = 0.9f * shaking_energy + 0.1f * fabsf(acc);
 
-    if (acc > thr && (now - step_last) > (uint32_t)STEP_MIN_INTERVAL_MS) {
-        uint32_t interval = now - step_last;
+    /* 带滞回的峰值检测 + 阈值下限。
+     * - eff_thr 取自适应阈值与 STEP_MIN_THRESH 的较大值: 静止时自适应阈值
+     *   趋向 0, 用下限兜底, 防止传感器噪声被误计为步。
+     * - acc 越过 eff_thr → arm (标记疑似步态峰)
+     * - acc 跌回 eff_thr/2 以下 → 确认完整峰 → 计步
+     * 相比 "acc>thr 即计步", 滞回能拒绝阈值附近的噪声抖动和宽峰重复计数。 */
+    float eff_thr = (thr < STEP_MIN_THRESH) ? STEP_MIN_THRESH : thr;
 
-        /* step_intervals / step_hist_idx / step_hist_cnt 与 steps 同属
-         * "会被 Reset_StepCount 清零的共享态", 整段进临界区, 不再依赖
-         * "Reset_StepCount (Voice, prio 2) 优先级低于本函数 (Sensors, prio 3)"
-         * 的隐式约定——未来若调整任务优先级, 此处仍正确。 */
-        taskENTER_CRITICAL();
-        step_intervals[step_hist_idx] = interval;
-        step_hist_idx = (step_hist_idx + 1) % STEP_HISTORY_LEN;
-        if (step_hist_cnt < STEP_HISTORY_LEN) step_hist_cnt++;
-        steps++;
-        step_last = now;
-        taskEXIT_CRITICAL();
+    if (!step_armed) {
+        if (acc > eff_thr) {
+            step_armed = 1;
+        }
+    } else {
+        if (acc < eff_thr * 0.5f) {
+            step_armed = 0;
+            if ((now - step_last) > (uint32_t)STEP_MIN_INTERVAL_MS) {
+                uint32_t interval = now - step_last;
+
+                /* step_intervals / step_hist_idx / step_hist_cnt 与 steps 同属
+                 * "会被 Reset_StepCount 清零的共享态", 整段进临界区, 不再依赖
+                 * "Reset_StepCount (Voice, prio 2) 优先级低于本函数 (Sensors, prio 3)"
+                 * 的隐式约定——未来若调整任务优先级, 此处仍正确。 */
+                taskENTER_CRITICAL();
+                step_intervals[step_hist_idx] = interval;
+                step_hist_idx = (step_hist_idx + 1) % STEP_HISTORY_LEN;
+                if (step_hist_cnt < STEP_HISTORY_LEN) step_hist_cnt++;
+                steps++;
+                step_last = now;
+                taskEXIT_CRITICAL();
+            }
+        }
     }
 
     /* 运动状态分类 — 读 step_hist_cnt / step_intervals 做浮点运算。

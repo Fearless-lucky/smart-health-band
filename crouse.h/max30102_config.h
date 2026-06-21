@@ -32,6 +32,9 @@
 #define PPG_PERIOD_MAX_S           2.0f   /* 最大心跳周期 秒 (>=30bpm) */
 #define PPG_PEAK_HISTORY_MAX       8      /* 心率计算用最近峰值数 */
 #define PPG_STD_ACTIVE_MIN         0.2f   /* 标准差低于此值判定无信号 */
+#define PPG_BAD_HOLD_MAX           3      /* 连续N个坏窗口才归零 (防单次抖动闪0) */
+#define HR_MAX_DELTA               10     /* 心率单次更新最大变化 bpm (抗跳变) */
+#define SPO2_MAX_DELTA             2      /* 血氧单次更新最大变化 % (抗跳变) */
 
 /* ---- SpO2 校准 ---- */
 #define SPO2_CAL_A                 110.0f
