@@ -2,6 +2,8 @@
 #include "stm32f10x.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 void Systick_Init(void)
 {
