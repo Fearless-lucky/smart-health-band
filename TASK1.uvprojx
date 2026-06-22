@@ -819,6 +819,11 @@
               <FileType>5</FileType>
               <FilePath>.\crouse.h\mpu6050_config.h</FilePath>
             </File>
+            <File>
+              <FileName>font_cn_16x16.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\crouse.h\font_cn_16x16.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

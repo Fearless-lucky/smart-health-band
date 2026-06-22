@@ -115,7 +115,7 @@ static void vTaskDisplay(void *pvParameters)
 {
     (void)pvParameters;
     int page = 0;
-    int tick = 0;
+    int tick = DISPLAY_FORCE_REFRESH;   /* 复位后立即刷新首页, 无需等500ms */
 
     for (;;) {
         if (Key_Get() || g_page_advance) {
