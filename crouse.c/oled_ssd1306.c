@@ -226,37 +226,41 @@ static void oled_drawtemp_big_center(uint8_t page, const char *numstr)
  * 每个整段 (Clear+Draw+Flush) 用互斥锁保护。
  * ============================================================ */
 
+/* 主页 — 手表风格: 顶部大号时间 + 语音指令指南。
+ * 8 条指令分 4 行双列展示, 配分隔线与底部装饰边框。 */
 void OLED_ShowMainPage(void)
 {
     if (oled_lock() != 0) return;
-    char buf[24];
+    char buf[16];
 
     OLED_Clear();
-    oled_drawstr_center(0, "== Smart Band ==");
-    oled_hline(8);
 
-    int   valid;
-    float temp;
-    Get_Temperature(&valid, &temp);
-
-    snprintf(buf, sizeof(buf), "HR:%d  SpO2:%d%%", Get_HeartRate(), Get_SpO2());
-    oled_drawstr_center(2, buf);
-
-    snprintf(buf, sizeof(buf), "Steps:%d", Get_StepCount());
-    oled_drawstr_center(3, buf);
-
-    if (valid)
-        snprintf(buf, sizeof(buf), "Temp:%.1fC", (double)temp);
-    else
-        snprintf(buf, sizeof(buf), "Temp:--.-C");
-    oled_drawstr_center(4, buf);
-
+    /* --- 顶部: 大号时间 (page 0~1, 2x 字体) --- */
     rtc_time_t tm;
     DS1302_ReadTime(&tm);
-    snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tm.hour, tm.min, tm.sec);
-    oled_drawstr_center(6, buf);
+    snprintf(buf, sizeof(buf), "%02d:%02d", tm.hour, tm.min);
+    oled_drawstr_big_center(0, buf);
 
-    oled_hline(56);
+    /* --- 分隔线 + 小标题 --- */
+    oled_hline(18);
+    oled_drawstr_center(2, "- Voice Guide -");
+
+    /* --- 8 条语音指令, 双列布局 ---
+     * 左列 x=4, 右列 x=68, 每行间隔 1 个 page
+     * 名称缩短以适配双列宽度 (每列 ≤10 字符) */
+    OLED_DrawString(4,  3, "1.HR");
+    OLED_DrawString(68, 3, "5.Temp");
+    OLED_DrawString(4,  4, "2.Steps");
+    OLED_DrawString(68, 4, "6.Time");
+    OLED_DrawString(4,  5, "3.Reset");
+    OLED_DrawString(68, 5, "7.Main");
+    OLED_DrawString(4,  6, "4.SpO2");
+    OLED_DrawString(68, 6, "8.Next");
+
+    /* --- 底部装饰: 双线边框 --- */
+    oled_hline(57);
+    oled_hline(59);
+
     OLED_Flush();
     oled_unlock();
 }

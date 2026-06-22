@@ -107,8 +107,8 @@ static void vTaskSensors(void *pvParameters)
 /* ==================================================================
  * 任务: 显示 (50ms周期, 优先级2)
  *
- * 5 个页面轮转: 心率 → 血氧 → 步数 → 体温 → 时间
- * 按键/语音触发翻页
+ * 4 个页面轮转: 心率 → 血氧 → 步数 → 体温
+ * 按键/语音触发翻页 (语音"查看时间/显示主页"直接跳主页)
  * ================================================================== */
 
 static void vTaskDisplay(void *pvParameters)
@@ -119,7 +119,7 @@ static void vTaskDisplay(void *pvParameters)
 
     for (;;) {
         if (Key_Get() || g_page_advance) {
-            page = (page + 1) % 5;
+            page = (page + 1) % 4;
             g_page_advance = 0;
             tick = DISPLAY_FORCE_REFRESH;
         }
@@ -138,9 +138,6 @@ static void vTaskDisplay(void *pvParameters)
                 break;
             case 3: /* 体温 */
                 OLED_ShowTemperature();
-                break;
-            case 4: /* 时间 */
-                OLED_ShowTime();
                 break;
             default:
                 break;

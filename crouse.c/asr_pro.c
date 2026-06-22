@@ -42,7 +42,7 @@ void ASR_ProcessUART(void)
             OLED_ShowTemperature();
             break;
         case ASR_CMD_TIME:
-            OLED_ShowTime();
+            OLED_ShowMainPage();   /* 时间已并入主页顶部大号显示 */
             break;
         case ASR_CMD_MAIN:
             OLED_ShowMainPage();
