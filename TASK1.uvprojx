@@ -140,7 +140,6 @@
           <Flash2>BIN\UL2CM3.DLL</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
-          <pFcarmOut>Task1</pFcarmOut>
           <pFcarmGrp>.c</pFcarmGrp>
           <pFcArmRoot></pFcArmRoot>
           <FcArmLst>0</FcArmLst>
@@ -498,11 +497,6 @@
               <FileName>stm32f10x_wwdg.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Device\StdPeriph_Driver\src\stm32f10x_wwdg.c</FilePath>
-            </File>
-            <File>
-              <FileName>Task1</FileName>
-              <FileType>1</FileType>
-              <FilePath>Task1</FilePath>
             </File>
           </Files>
         </Group>
