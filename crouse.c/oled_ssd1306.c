@@ -239,6 +239,40 @@ static void oled_draw_cn12_str(uint8_t x, uint8_t y, const uint8_t *idxs, uint8_
         oled_draw_cn12(x + i * 12, y, idxs[i]);
 }
 
+/* 5x7 字符在任意 y 坐标绘制 (非 page 对齐)。
+ * 用于主页序号与 12x12 中文同 y 对齐。 */
+static void oled_drawchar_at(uint8_t x, uint8_t y, char c)
+{
+    uint8_t idx;
+    if ((unsigned char)c < 32 || (unsigned char)c > 126) idx = 0;
+    else idx = (unsigned char)c - 32;
+    for (uint8_t col = 0; col < 5; col++) {
+        uint8_t col_data = font5x7[idx][col];
+        for (uint8_t bit = 0; bit < 7; bit++)
+            if (col_data & (1 << bit)) oled_setpixel(x + col, y + bit);
+    }
+}
+
+/* 5x7 字符串在任意 y 坐标绘制 (非 page 对齐) */
+static void oled_drawstr_at(uint8_t x, uint8_t y, const char *s)
+{
+    while (*s) {
+        oled_drawchar_at(x, y, *s);
+        x += 6;
+        s++;
+    }
+}
+
+/* 5x7 字符串在任意 y 坐标居中绘制 */
+static void oled_drawstr_at_center(uint8_t y, const char *s)
+{
+    uint8_t len = 0;
+    while (s[len]) len++;
+    if (len == 0) return;
+    uint8_t x = (128 - len * 6) / 2;
+    oled_drawstr_at(x, y, s);
+}
+
 /* 2 倍放大字体居中绘制 (12px/字符, 占 2 page) */
 static void oled_drawstr_big_center(uint8_t page, const char *s)
 {
@@ -282,24 +316,24 @@ static void oled_drawtemp_big_center(uint8_t page, const char *numstr)
  * 每个整段 (Clear+Draw+Flush) 用互斥锁保护。
  * ============================================================ */
 
-/* 主页 — 手表风格: 顶部大号时间 + 菱形装饰 + 6条语音指令指南(中文)。
+/* 主页 — 手表风格: 顶部大号时间 + 小号日期 + 6条语音指令(中文,对齐)。
  *
  * 布局 (128×64):
- *   y=0~15:  ◆  12:30  ◆      大号时间(2x)居中, 两侧菱形装饰
- *   y=16:    ──────────────   分隔线
- *   y=20~31: 1.查看心率  2.查看步数   (12x12中文)
- *   y=32~43: 3.归零步数  4.查看血氧
- *   y=44~55: 5.查看体温  6.查看时间
- *   y=56:    ──────────────   分隔线
- *   y=57~63: Smart Health Band (底部装饰文案, 5x7小字居中)
+ *   y=0~13:  ◆  12:30  ◆      大号时间(2x)居中, 两侧菱形装饰
+ *   y=16~22: 2024/01/15        小号日期(5x7, 居中)
+ *   y=24:    ──────────────   分隔线
+ *   y=26~37: 1.查看心率  2.查看步数   (序号+中文同y对齐)
+ *   y=38~49: 3.归零步数  4.查看血氧
+ *   y=50~61: 5.查看体温  6.查看时间
+ *   y=63:    ──────────────   底部分隔线
  *
- * 第7(显示主页)/第8(下一页)条指令由语音/按键触发, 不在主页展示。
- * 双列: 左列序号x=2中文x=14, 右列序号x=66中文x=78。
+ * 序号用 oled_drawstr_at (任意y), 中文用 oled_draw_cn12_str (任意y),
+ * 两者起始 y 完全一致, 解决对齐问题。
  */
 void OLED_ShowMainPage(void)
 {
     if (oled_lock() != 0) return;
-    char buf[16];
+    char buf[20];
 
     OLED_Clear();
 
@@ -308,38 +342,41 @@ void OLED_ShowMainPage(void)
     DS1302_ReadTime(&tm);
     snprintf(buf, sizeof(buf), "%02d:%02d", tm.hour, tm.min);
     oled_drawstr_big_center(0, buf);
-    /* 左菱形◆ (x=18~24, y=4~9) */
-    oled_setpixel(21, 4); oled_setpixel(20, 5); oled_setpixel(22, 5);
-    oled_setpixel(19, 6); oled_setpixel(23, 6);
-    oled_setpixel(20, 7); oled_setpixel(22, 7); oled_setpixel(21, 8);
-    /* 右菱形◆ (x=104~110, y=4~9) */
-    oled_setpixel(107, 4); oled_setpixel(106, 5); oled_setpixel(108, 5);
-    oled_setpixel(105, 6); oled_setpixel(109, 6);
-    oled_setpixel(106, 7); oled_setpixel(108, 7); oled_setpixel(107, 8);
+    /* 左菱形◆ (x=18~24, y=3~10) */
+    oled_setpixel(21, 3); oled_setpixel(20, 4); oled_setpixel(22, 4);
+    oled_setpixel(19, 5); oled_setpixel(23, 5);
+    oled_setpixel(20, 6); oled_setpixel(22, 6); oled_setpixel(21, 7);
+    /* 右菱形◆ (x=104~110, y=3~10) */
+    oled_setpixel(107, 3); oled_setpixel(106, 4); oled_setpixel(108, 4);
+    oled_setpixel(105, 5); oled_setpixel(109, 5);
+    oled_setpixel(106, 6); oled_setpixel(108, 6); oled_setpixel(107, 7);
+
+    /* --- 小号日期 (5x7, 居中, y=16) --- */
+    snprintf(buf, sizeof(buf), "20%02d/%02d/%02d", tm.year, tm.month, tm.day);
+    oled_drawstr_at_center(16, buf);
 
     /* --- 分隔线 --- */
-    oled_hline(16);
+    oled_hline(24);
 
-    /* --- 6 条语音指令 (12x12 中文, 双列) --- */
-    /* 行1 y=20: 查看心率 | 查看步数 */
+    /* --- 6 条语音指令 (12x12 中文, 双列, 序号同y对齐) --- */
+    /* 行1 y=26: 查看心率 | 查看步数 */
     {static const uint8_t c1[] = {CN_CHA,CN_KAN,CN_XIN,CN_LV};
      static const uint8_t c2[] = {CN_CHA,CN_KAN,CN_BU,CN_SHU};
-     OLED_DrawString(2,  2, "1.");  oled_draw_cn12_str(14, 20, c1, 4);
-     OLED_DrawString(66, 2, "2.");  oled_draw_cn12_str(78, 20, c2, 4);}
-    /* 行2 y=32: 归零步数 | 查看血氧 */
+     oled_drawstr_at(2,  26, "1.");  oled_draw_cn12_str(14, 26, c1, 4);
+     oled_drawstr_at(66, 26, "2.");  oled_draw_cn12_str(78, 26, c2, 4);}
+    /* 行2 y=38: 归零步数 | 查看血氧 */
     {static const uint8_t c3[] = {CN_GUI,CN_LING,CN_BU,CN_SHU};
      static const uint8_t c4[] = {CN_CHA,CN_KAN,CN_XUE,CN_YANG};
-     OLED_DrawString(2,  4, "3.");  oled_draw_cn12_str(14, 32, c3, 4);
-     OLED_DrawString(66, 4, "4.");  oled_draw_cn12_str(78, 32, c4, 4);}
-    /* 行3 y=44: 查看体温 | 查看时间 */
+     oled_drawstr_at(2,  38, "3.");  oled_draw_cn12_str(14, 38, c3, 4);
+     oled_drawstr_at(66, 38, "4.");  oled_draw_cn12_str(78, 38, c4, 4);}
+    /* 行3 y=50: 查看体温 | 查看时间 */
     {static const uint8_t c5[] = {CN_CHA,CN_KAN,CN_TI,CN_WEN};
      static const uint8_t c6[] = {CN_CHA,CN_KAN,CN_SHI,CN_JIAN};
-     OLED_DrawString(2,  5, "5.");  oled_draw_cn12_str(14, 44, c5, 4);
-     OLED_DrawString(66, 5, "6.");  oled_draw_cn12_str(78, 44, c6, 4);}
+     oled_drawstr_at(2,  50, "5.");  oled_draw_cn12_str(14, 50, c5, 4);
+     oled_drawstr_at(66, 50, "6.");  oled_draw_cn12_str(78, 50, c6, 4);}
 
-    /* --- 底部分隔线 + 装饰文案 --- */
-    oled_hline(56);
-    oled_drawstr_center(7, "Smart Health Band");
+    /* --- 底部分隔线 --- */
+    oled_hline(63);
 
     OLED_Flush();
     oled_unlock();
