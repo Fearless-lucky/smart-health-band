@@ -26,6 +26,14 @@ static uint8_t  step_hist_cnt  = 0;
  * 供 Reset_StepCount 重置, 否则清零步数时若正处于 armed 状态, 下一次
  * acc 跌回会立即误计一步 (step_last=0 → now-step_last 巨大 → 通过间隔检查)。 */
 static uint8_t  step_armed     = 0;
+/* 步态连续性确认: 记录最近 STEP_CONFIRM_MIN 步的绝对时间戳。
+ * 只有在 STEP_VALID_WINDOW_MS 时间窗内已有 ≥ STEP_CONFIRM_MIN 步时,
+ * 才将新检测到的步计入 steps。这能过滤"碰一下/拍一下"这类孤立单次扰动
+ * (它们不会形成连续步态序列)。前 STEP_CONFIRM_MIN-1 步先存入暂存队列,
+ * 达到阈值后才回补计入并转入正常计数模式。 */
+static uint32_t step_pending_ts[STEP_CONFIRM_MIN];
+static uint8_t  step_pending_cnt = 0;
+static uint8_t  step_confirmed   = 0;   /* 1=已确认连续步态, 后续步直接计入 */
 
 static float spo2_cal_A = SPO2_CAL_A;
 static float spo2_cal_B = SPO2_CAL_B;
@@ -47,6 +55,12 @@ static uint8_t  peak_count = 0;   /* 已存峰值数 (≤ MAX_PEAKS) */
 /* 连续低信号窗口计数。stdv 低于阈值时不立即归零, 累计到
  * PPG_BAD_HOLD_MAX 才判定"真正无信号", 避免单次运动伪影导致读数闪 0。 */
 static uint8_t  ppg_bad_count = 0;
+
+/* 连续"有效信号"窗口计数。需要连续 PPG_LOCK_COUNT 个窗口同时满足
+ * (a) 交流分量 stdv 足够 (b) IR 直流分量足够 (有手指按压) 才确认信号有效,
+ * 之后才输出心率/血氧。这能过滤环境微动/桌面震动产生的假"信号"——
+ * 这类扰动虽能使 stdv 短时超阈值, 但无法持续多窗口稳定维持。 */
+static uint8_t  ppg_lock_count = 0;
 
 static activity_t activity_state = ACTIVITY_UNKNOWN;
 
@@ -212,10 +226,17 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
     float std_red   = calc_std(win_red, N, mean_red);
 
     /* --- 信号质量门控 (HR 和 SpO2 共用) ---
-     * stdv 低于阈值说明手指脱离/压力不足/运动伪影。不立即清零
-     * (否则读数会频繁闪 0), 而是累计连续 PPG_BAD_HOLD_MAX 个坏窗口
-     * 后才判定"真正无信号"。期间保持上一次有效读数。 */
-    if (stdv < PPG_STD_ACTIVE_MIN) {
+     * 同时检查两个条件, 缺一不可:
+     *   (a) 交流分量: stdv >= PPG_STD_ACTIVE_MIN (有脉搏波纹)
+     *   (b) 直流分量: mean_ir >= PPG_IR_DC_MIN (有手指按压, IR 被组织吸收)
+     * 仅 (a) 满足而 (b) 不满足时, 多为环境光/桌面震动产生的假纹波,
+     * 不应输出读数。需要连续 PPG_LOCK_COUNT 个窗口同时满足才"锁定"输出,
+     * 过滤短暂扰动。锁定后只要窗口仍有效就持续更新; 一旦累计坏窗口
+     * 达 PPG_BAD_HOLD_MAX 则解锁并归零读数。 */
+    int signal_good = (stdv >= PPG_STD_ACTIVE_MIN) && (mean_ir >= PPG_IR_DC_MIN);
+
+    if (!signal_good) {
+        ppg_lock_count = 0;          /* 坏窗口中断锁定进程 */
         if (ppg_bad_count < 255) ppg_bad_count++;
         if (ppg_bad_count >= PPG_BAD_HOLD_MAX) {
             hr = 0;
@@ -226,6 +247,13 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
         return;
     }
     ppg_bad_count = 0;
+
+    /* 锁定期: 累积连续好窗口, 达 PPG_LOCK_COUNT 才首次输出读数。
+     * 锁定后 ppg_lock_count 维持 >= PPG_LOCK_COUNT, 后续每次直接更新。 */
+    if (ppg_lock_count < PPG_LOCK_COUNT) {
+        ppg_lock_count++;
+        if (ppg_lock_count < PPG_LOCK_COUNT) return;  /* 未达锁定, 不输出 */
+    }
 
     /* --- HR 更新: compute_hr 已做中值去极值, 此处加变化率限幅防残余跳变 --- */
     int new_hr = compute_hr();
@@ -242,7 +270,7 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
     }
 
     /* --- SpO2 更新: EMA + 变化率限幅 --- */
-    if (mean_ir > 0.0f && std_ir > 0.0f && mean_red > 0.0f) {
+    if (std_ir > 0.0f && mean_red > 0.0f) {
         float R = (std_red / mean_red) / (std_ir / mean_ir);
         int est = (int)(spo2_cal_A - spo2_cal_B * R + 0.5f);
         if (est < SPO2_CLAMP_MIN)  est = SPO2_CLAMP_MIN;
@@ -313,7 +341,7 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
      * - eff_thr 取自适应阈值与 STEP_MIN_THRESH 的较大值: 静止时自适应阈值
      *   趋向 0, 用下限兜底, 防止传感器噪声被误计为步。
      * - acc 越过 eff_thr → arm (标记疑似步态峰)
-     * - acc 跌回 eff_thr/2 以下 → 确认完整峰 → 计步
+     * - acc 跌回 eff_thr/2 以下 → 确认完整峰 → 候选步
      * 相比 "acc>thr 即计步", 滞回能拒绝阈值附近的噪声抖动和宽峰重复计数。 */
     float eff_thr = (thr < STEP_MIN_THRESH) ? STEP_MIN_THRESH : thr;
 
@@ -327,17 +355,54 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
             if ((now - step_last) > (uint32_t)STEP_MIN_INTERVAL_MS) {
                 uint32_t interval = now - step_last;
 
-                /* step_intervals / step_hist_idx / step_hist_cnt 与 steps 同属
-                 * "会被 Reset_StepCount 清零的共享态", 整段进临界区, 不再依赖
-                 * "Reset_StepCount (Voice, prio 2) 优先级低于本函数 (Sensors, prio 3)"
-                 * 的隐式约定——未来若调整任务优先级, 此处仍正确。 */
-                taskENTER_CRITICAL();
-                step_intervals[step_hist_idx] = interval;
-                step_hist_idx = (step_hist_idx + 1) % STEP_HISTORY_LEN;
-                if (step_hist_cnt < STEP_HISTORY_LEN) step_hist_cnt++;
-                steps++;
+                /* --- 步态连续性确认 ---
+                 * 真实步行是连续序列 (步间隔 300ms~1.5s), 而碰一下/拍一下是
+                 * 孤立事件。只有 STEP_VALID_WINDOW_MS 窗口内已有 ≥ STEP_CONFIRM_MIN
+                 * 步时, 新步才计入 steps。
+                 *   未确认 (step_confirmed==0): 候选步存入 step_pending_ts 暂存队列,
+                 *     达到 STEP_CONFIRM_MIN 步且都在窗口内 → 确认 → 回补全部暂存步。
+                 *   已确认 (step_confirmed==1): 直接计入, 并用窗口检查维持确认状态。
+                 * step_last 无论如何都更新, 作为下个间隔的基准。 */
+                if (step_confirmed) {
+                    /* 已确认步态: 检查最近步是否仍在窗口内 (防止长时间停顿后误续) */
+                    if ((now - step_last) > (uint32_t)STEP_VALID_WINDOW_MS) {
+                        /* 超过窗口, 视为新序列开始, 回到未确认状态 */
+                        step_confirmed = 0;
+                        step_pending_cnt = 0;
+                        if (step_pending_cnt < STEP_CONFIRM_MIN)
+                            step_pending_ts[step_pending_cnt++] = now;
+                    } else {
+                        taskENTER_CRITICAL();
+                        step_intervals[step_hist_idx] = interval;
+                        step_hist_idx = (step_hist_idx + 1) % STEP_HISTORY_LEN;
+                        if (step_hist_cnt < STEP_HISTORY_LEN) step_hist_cnt++;
+                        steps++;
+                        taskEXIT_CRITICAL();
+                    }
+                } else {
+                    /* 未确认: 存入暂存队列, 先不计入 steps。
+                     * 数组大小为 STEP_CONFIRM_MIN, 写入前检查防越界。 */
+                    if (step_pending_cnt < STEP_CONFIRM_MIN)
+                        step_pending_ts[step_pending_cnt++] = now;
+                    if (step_pending_cnt >= STEP_CONFIRM_MIN) {
+                        /* 检查暂存队列首尾是否都在窗口内 */
+                        if ((step_pending_ts[step_pending_cnt - 1] - step_pending_ts[0])
+                            <= (uint32_t)STEP_VALID_WINDOW_MS) {
+                            /* 确认连续步态: 回补全部暂存步 (首步的 interval 用当前 interval) */
+                            taskENTER_CRITICAL();
+                            for (uint8_t i = 0; i < step_pending_cnt; i++) {
+                                step_intervals[step_hist_idx] = interval;
+                                step_hist_idx = (step_hist_idx + 1) % STEP_HISTORY_LEN;
+                                if (step_hist_cnt < STEP_HISTORY_LEN) step_hist_cnt++;
+                                steps++;
+                            }
+                            taskEXIT_CRITICAL();
+                            step_confirmed = 1;
+                        }
+                        step_pending_cnt = 0;
+                    }
+                }
                 step_last = now;
-                taskEXIT_CRITICAL();
             }
         }
     }
@@ -369,7 +434,8 @@ void Reset_StepCount(void)
 {
     /* 归零步数时必须同步清空步态历史, 否则残留的 step_intervals 会立即
      * 把活动状态误判为 WALKING/RUNNING, step_last 也会污染 idle_time 判定。
-     * step_armed 一并清零, 避免滞回状态机在 step_last=0 后误计一步。
+     * step_armed / step_pending_* / step_confirmed 一并清零, 重置连续性
+     * 确认状态机, 避免清零后立即继承旧步态判定。
      * grav/thr/shaking_energy/settle_cnt 是自适应基线, 不清零。 */
     taskENTER_CRITICAL();
     steps          = 0;
@@ -377,5 +443,7 @@ void Reset_StepCount(void)
     step_hist_idx  = 0;
     step_hist_cnt  = 0;
     step_armed     = 0;
+    step_pending_cnt = 0;
+    step_confirmed   = 0;
     taskEXIT_CRITICAL();
 }

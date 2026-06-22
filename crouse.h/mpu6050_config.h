@@ -28,6 +28,8 @@
 #define STEP_MIN_INTERVAL_MS       300    /* 最小步间隔 ms (允许~200spm, 兼顾跑步) */
 #define STEP_MIN_THRESH            200.0f /* 自适应阈值下限 (抗静止噪声误计) */
 #define STEP_HISTORY_LEN           8      /* 步间隔历史缓冲区大小 */
+#define STEP_VALID_WINDOW_MS       3000   /* 步态连续性窗口 ms (需窗口内≥2步才确认步态) */
+#define STEP_CONFIRM_MIN           2      /* 窗口内最少步数才算连续步态 (过滤单次碰触) */
 
 /* ---- 运动状态分类 ---- */
 #define ACTIVITY_SHAKE_ENERGY      400    /* 晃动能量阈值 */

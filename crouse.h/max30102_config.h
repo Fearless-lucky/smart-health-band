@@ -35,6 +35,8 @@
 #define PPG_BAD_HOLD_MAX           3      /* 连续N个坏窗口才归零 (防单次抖动闪0) */
 #define HR_MAX_DELTA               10     /* 心率单次更新最大变化 bpm (抗跳变) */
 #define SPO2_MAX_DELTA             2      /* 血氧单次更新最大变化 % (抗跳变) */
+#define PPG_IR_DC_MIN              5000.0f /* IR 通道 DC 均值门限 (无手指时仅环境光, 远低于此值) */
+#define PPG_LOCK_COUNT             4      /* 连续N个好窗口才确认有效 (过滤环境微动) */
 
 /* ---- SpO2 校准 ---- */
 #define SPO2_CAL_A                 110.0f
