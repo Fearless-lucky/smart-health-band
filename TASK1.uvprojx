@@ -140,6 +140,10 @@
           <Flash2>BIN\UL2CM3.DLL</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
+          <pFcarmOut></pFcarmOut>
+          <pFcarmGrp></pFcarmGrp>
+          <pFcArmRoot></pFcArmRoot>
+          <FcArmLst>0</FcArmLst>
         </Utilities>
         <TargetArmAds>
           <ArmAdsMisc>
@@ -817,7 +821,7 @@
             </File>
             <File>
               <FileName>font_cn_12x12.h</FileName>
-              <FileType>9</FileType>
+              <FileType>5</FileType>
               <FilePath>.\crouse.h\font_cn_12x12.h</FilePath>
             </File>
           </Files>
