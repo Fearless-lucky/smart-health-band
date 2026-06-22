@@ -140,8 +140,8 @@
           <Flash2>BIN\UL2CM3.DLL</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
-          <pFcarmOut></pFcarmOut>
-          <pFcarmGrp></pFcarmGrp>
+          <pFcarmOut>Task1</pFcarmOut>
+          <pFcarmGrp>.c</pFcarmGrp>
           <pFcArmRoot></pFcArmRoot>
           <FcArmLst>0</FcArmLst>
         </Utilities>
@@ -499,6 +499,11 @@
               <FileType>1</FileType>
               <FilePath>.\Device\StdPeriph_Driver\src\stm32f10x_wwdg.c</FilePath>
             </File>
+            <File>
+              <FileName>Task1</FileName>
+              <FileType>1</FileType>
+              <FilePath>Task1</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -820,9 +825,9 @@
               <FilePath>.\crouse.h\mpu6050_config.h</FilePath>
             </File>
             <File>
-              <FileName>font_cn_16x16.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\font_cn_16x16.h</FilePath>
+              <FileName>font_cn_12x12.h</FileName>
+              <FileType>9</FileType>
+              <FilePath>.\crouse.h\font_cn_12x12.h</FilePath>
             </File>
           </Files>
         </Group>

@@ -2,34 +2,11 @@
 #define __FONT_CN_12X12_H
 
 #include <stdint.h>
+#include "font_cn_16x16.h"   /* 复用 CN_* 枚举, 避免重复定义 */
 
 /* 12x12 中文字库 — 从 simhei.ttf 渲染生成, 每字 24 字节 (12行×2字节)。
- * 索引与 font_cn_16x16.h 的 CN_* 枚举完全一致, 可互换使用。 */
-
-/* 汉字索引枚举 (与 font_cn_16x16.h 共用) */
-enum {
-    CN_CHA = 0,   /* 查 */
-    CN_KAN,       /* 看 */
-    CN_XIN,       /* 心 */
-    CN_LV,        /* 率 */
-    CN_BU,       /* 步 */
-    CN_SHU,       /* 数 */
-    CN_GUI,       /* 归 */
-    CN_LING,      /* 零 */
-    CN_XUE,       /* 血 */
-    CN_YANG,      /* 氧 */
-    CN_TI,       /* 体 */
-    CN_WEN,       /* 温 */
-    CN_SHI,       /* 时 */
-    CN_JIAN,      /* 间 */
-    CN_XIAN,      /* 显 */
-    CN_SHI2,      /* 示 */
-    CN_ZHU,       /* 主 */
-    CN_YE,       /* 页 */
-    CN_XIA,       /* 下 */
-    CN_YI,       /* 一 */
-    CN_COUNT      /* 20 */
-};
+ * 索引与 font_cn_16x16.h 的 CN_* 枚举完全一致, 可互换使用。
+ * 枚举定义在 font_cn_16x16.h 中, 本文件只提供字模数据。 */
 
 static const uint8_t font_cn_12[CN_COUNT][24] = {
     /* 查 */ { 0x00,0x00,0x04,0x00,0x7F,0xE0,0x1D,0x00,0x34,0xC0,0x5F,0xA0,0x10,0x80,0x1F,0x80,0x1F,0x80,0x00,0x00,0x7F,0xE0,0x00,0x00 },
