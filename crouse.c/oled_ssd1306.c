@@ -5,6 +5,7 @@
 #include "ds1302.h"
 #include "globals.h"
 #include "font5x7.h"
+#include "font_cn_16x16.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
@@ -183,6 +184,35 @@ static void oled_drawstr_center(uint8_t page, const char *s)
     OLED_DrawString(x, page, s);
 }
 
+/* 绘制单个 16x16 中文字符 (通过索引)。占 2 个 page。 */
+static void oled_draw_cn(uint8_t x, uint8_t page, uint8_t idx)
+{
+    if (idx >= CN_COUNT) return;
+    const uint8_t *p = font_cn[idx];
+    uint8_t base_y = page * 8;
+    for (uint8_t row = 0; row < 16; row++) {
+        uint8_t hi = p[row * 2];
+        uint8_t lo = p[row * 2 + 1];
+        for (uint8_t col = 0; col < 8; col++) {
+            if (hi & (0x80 >> col))
+                oled_setpixel(x + col, base_y + row);
+        }
+        for (uint8_t col = 0; col < 8; col++) {
+            if (lo & (0x80 >> col))
+                oled_setpixel(x + 8 + col, base_y + row);
+        }
+    }
+}
+
+/* 绘制中文指令字符串 (索引数组, 每个索引对应一个汉字)。
+ * n 个汉字, 每字 16px 紧密排列 (无间距), 在指定 page 行起始 x 处绘制。
+ * 4 字 = 64px, 双列 x=0 和 x=64 恰好填满 128px。 */
+static void oled_draw_cn_str(uint8_t x, uint8_t page, const uint8_t *idxs, uint8_t n)
+{
+    for (uint8_t i = 0; i < n; i++)
+        oled_draw_cn(x + i * 16, page, idxs[i]);
+}
+
 /* 2 倍放大字体居中绘制 (12px/字符, 占 2 page) */
 static void oled_drawstr_big_center(uint8_t page, const char *s)
 {
@@ -226,40 +256,41 @@ static void oled_drawtemp_big_center(uint8_t page, const char *numstr)
  * 每个整段 (Clear+Draw+Flush) 用互斥锁保护。
  * ============================================================ */
 
-/* 主页 — 手表风格: 顶部大号时间 + 语音指令指南。
- * 8 条指令分 4 行双列展示, 配分隔线与底部装饰边框。 */
+/* 主页 — 语音指令指南 (中文 16x16)。
+ * 全屏 4 行双列, 每行 2 条指令, 每条 4 字 × 16px = 64px。
+ * 左列 x=0, 右列 x=64, 恰好填满 128px 宽。
+ * 4 行 × 16px = 64px, 恰好填满 64px 高。
+ * 时间不在此页显示 (语音"查看时间"可跳转时间页查看大号时间)。
+ */
 void OLED_ShowMainPage(void)
 {
     if (oled_lock() != 0) return;
-    char buf[16];
 
     OLED_Clear();
 
-    /* --- 顶部: 大号时间 (page 0~1, 2x 字体) --- */
-    rtc_time_t tm;
-    DS1302_ReadTime(&tm);
-    snprintf(buf, sizeof(buf), "%02d:%02d", tm.hour, tm.min);
-    oled_drawstr_big_center(0, buf);
+    /* 行1 (page 0-1, y=0~15): 查看心率 | 查看步数 */
+    {static const uint8_t l1[] = {CN_CHA,CN_KAN,CN_XIN,CN_LV};
+     static const uint8_t r1[] = {CN_CHA,CN_KAN,CN_BU,CN_SHU};
+     oled_draw_cn_str(0,  0, l1, 4);
+     oled_draw_cn_str(64, 0, r1, 4);}
 
-    /* --- 分隔线 + 小标题 --- */
-    oled_hline(18);
-    oled_drawstr_center(2, "- Voice Guide -");
+    /* 行2 (page 2-3, y=16~31): 归零步数 | 查看血氧 */
+    {static const uint8_t l2[] = {CN_GUI,CN_LING,CN_BU,CN_SHU};
+     static const uint8_t r2[] = {CN_CHA,CN_KAN,CN_XUE,CN_YANG};
+     oled_draw_cn_str(0,  2, l2, 4);
+     oled_draw_cn_str(64, 2, r2, 4);}
 
-    /* --- 8 条语音指令, 双列布局 ---
-     * 左列 x=4, 右列 x=68, 每行间隔 1 个 page
-     * 名称缩短以适配双列宽度 (每列 ≤10 字符) */
-    OLED_DrawString(4,  3, "1.HR");
-    OLED_DrawString(68, 3, "5.Temp");
-    OLED_DrawString(4,  4, "2.Steps");
-    OLED_DrawString(68, 4, "6.Time");
-    OLED_DrawString(4,  5, "3.Reset");
-    OLED_DrawString(68, 5, "7.Main");
-    OLED_DrawString(4,  6, "4.SpO2");
-    OLED_DrawString(68, 6, "8.Next");
+    /* 行3 (page 4-5, y=32~47): 查看体温 | 查看时间 */
+    {static const uint8_t l3[] = {CN_CHA,CN_KAN,CN_TI,CN_WEN};
+     static const uint8_t r3[] = {CN_CHA,CN_KAN,CN_SHI,CN_JIAN};
+     oled_draw_cn_str(0,  4, l3, 4);
+     oled_draw_cn_str(64, 4, r3, 4);}
 
-    /* --- 底部装饰: 双线边框 --- */
-    oled_hline(57);
-    oled_hline(59);
+    /* 行4 (page 6-7, y=48~63): 显示主页 | 下一页 */
+    {static const uint8_t l4[] = {CN_XIAN,CN_SHI2,CN_ZHU,CN_YE};
+     static const uint8_t r4[] = {CN_XIA,CN_YI,CN_YE};
+     oled_draw_cn_str(0,  6, l4, 4);
+     oled_draw_cn_str(64, 6, r4, 3);}
 
     OLED_Flush();
     oled_unlock();
