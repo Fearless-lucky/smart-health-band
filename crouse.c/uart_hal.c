@@ -65,7 +65,9 @@ void UART2_Init(uint32_t baud)
     gpio.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &gpio);
     gpio.GPIO_Pin   = GPIO_Pin_3;
-    gpio.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
+    /* 上拉输入: ASR 模块未上电/未接线时 RX 不会悬空, 避免噪声误触发语音指令。
+     * 与 UART1 RX (PA10) 保持一致。 */
+    gpio.GPIO_Mode  = GPIO_Mode_IPU;
     GPIO_Init(GPIOA, &gpio);
     uart_init(USART2, baud);
 }

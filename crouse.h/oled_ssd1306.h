@@ -5,7 +5,7 @@
 #include "algorithms.h"   /* activity_t, 用于 OLED_ShowActivity */
 
 void OLED_Init(void);
-void OLED_ShowMainPage(void);       /* 主页: 大号时间 + 8条语音指令指南 */
+void OLED_ShowMainPage(void);       /* 主页: 大号时间 + 6条语音指令指南 */
 void OLED_ShowHeartRate(int hr);
 void OLED_ShowSpO2(int spo2);
 void OLED_ShowSteps(int steps);
