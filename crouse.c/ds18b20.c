@@ -1,15 +1,7 @@
 #include "ds18b20.h"
-#include "ds18b20_config.h"
-#include "stm32f10x_gpio.h"
-#include "stm32f10x_rcc.h"
 #include "systick.h"
 #include "FreeRTOS.h"
 #include "task.h"
-
-/* ============================================================
- * 内部: 1-Wire 总线控制 — 仅本文件使用
- * 引脚宏 (DS18B20_PORT, DS18B20_PIN) 来自 ds18b20_config.h
- * ============================================================ */
 
 static void dq_output(void)
 {
@@ -31,10 +23,6 @@ static void dq_input(void)
 static void dq_low(void)  { dq_output(); GPIO_ResetBits(DS18B20_PORT, DS18B20_PIN); }
 static void dq_high(void) { dq_output(); GPIO_SetBits(DS18B20_PORT, DS18B20_PIN); }
 static uint8_t dq_read(void) { dq_input(); return GPIO_ReadInputDataBit(DS18B20_PORT, DS18B20_PIN); }
-
-/* ============================================================
- * 内部: 1-Wire 时序 — 仅本文件使用
- * ============================================================ */
 
 static int ow_reset(void)
 {
@@ -107,10 +95,6 @@ static uint8_t ow_crc8(const uint8_t *data, int len)
     return crc;
 }
 
-/* ============================================================
- * 公开 API
- * ============================================================ */
-
 int DS18B20_Init(void)
 {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -149,10 +133,10 @@ int DS18B20_ReadData(float *temperature)
     taskEXIT_CRITICAL();
 
     if (reset_ok != 0)
-        return -2;              /* 总线无响应 (无设备/接触不良) */
+        return -2;
 
     if (ow_crc8(sp, 9) != 0)
-        return -1;          /* CRC 校验失败 */
+        return -1;
 
     int16_t raw = ((int16_t)sp[1] << 8) | sp[0];
     *temperature = raw / 16.0f;

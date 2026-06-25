@@ -1,43 +1,31 @@
 #include "stm32f10x.h"
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
+#include "stm32f10x_iwdg.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "systick.h"
-#include "i2c_hal.h"
-#include "uart_hal.h"
+#include "i2c.h"
+#include "uart.h"
 #include "max30102.h"
-#include "max30102_config.h"
 #include "ds18b20.h"
 #include "mpu6050.h"
-#include "mpu6050_config.h"
 #include "ds1302.h"
 #include "oled_ssd1306.h"
 #include "hc05.h"
 #include "asr_pro.h"
 #include "algorithms.h"
-#include "keys.h"
-#include "iwdg.h"
 #include "globals.h"
 #include <stdio.h>
 #include <string.h>
 
-/* ==================================================================
- * 显示控制参数
- * ================================================================== */
 #define DISPLAY_REFRESH_CYCLES  10   /* 10 × 50ms = 500ms 刷新间隔 */
 #define DISPLAY_FORCE_REFRESH   16   /* 翻页后强制立即刷新 (> REFRESH_CYCLES) */
 
-/* ==================================================================
- * 全局共享变量 — 跨任务通信
- * ================================================================== */
 volatile float  g_temperature  = 0.0f;
 volatile int    g_temp_valid   = 0;
 volatile int    g_page_advance = 0;
 
-/* ==================================================================
- * 共享状态访问器 — 原子读取体温快照
- * ================================================================== */
 void Get_Temperature(int *valid, float *temp)
 {
     taskENTER_CRITICAL();
@@ -46,15 +34,62 @@ void Get_Temperature(int *valid, float *temp)
     taskEXIT_CRITICAL();
 }
 
-/* ==================================================================
- * 任务: 传感器采集 (200ms周期, 优先级3)
- *
- * 轮询读取所有传感器:
- *   - MAX30102: FIFO → PPG_ProcessSamples()
- *   - MPU6050:   加速度 → Step_ProcessAccel()
- *                芯片温度 → 体温补偿参考
- *   - DS18B20:   每 4 周期读一次 (~800ms, 1-Wire 需 ≥750ms 转换时间)
- * ================================================================== */
+/* 板载按键:
+ * PA0 = WK_UP — 翻页, 高电平有效 (按下→高电平)
+ * 用开漏输出+低电平模拟强下拉，按钮按下时 VCC 拉高 PA0 */
+static void Keys_Init(void)
+{
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+    GPIO_InitTypeDef cfg;
+    cfg.GPIO_Pin   = GPIO_Pin_0;
+    cfg.GPIO_Mode  = GPIO_Mode_Out_OD;
+    cfg.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_Init(GPIOA, &cfg);
+    GPIO_ResetBits(GPIOA, GPIO_Pin_0);  /* 驱动低电平 → 强下拉 */
+}
+
+/* 无阻塞消抖: 调用周期 50ms, 远大于机械抖动 (<10ms),
+ * 两次采样间毛刺不构成"持续按下", 无需 vTaskDelay 消抖。
+ * 仅保留 300ms 防连按。 */
+static int key_read(GPIO_TypeDef *port, uint16_t pin,
+                    int active_high, uint32_t *last_tick)
+{
+    uint8_t cur = GPIO_ReadInputDataBit(port, pin);
+    int pressed = active_high ? (cur == Bit_SET) : (cur == Bit_RESET);
+    if (!pressed) return 0;
+
+    uint32_t now = xTaskGetTickCount();
+    if (now - *last_tick <= pdMS_TO_TICKS(300)) return 0;
+
+    *last_tick = now;
+    return 1;
+}
+
+static int Key_Get(void)
+{
+    static uint32_t t;
+    return key_read(GPIOA, GPIO_Pin_0, 1, &t);
+}
+
+/* 独立看门狗 (IWDG) — 基于 LSI (~40kHz), 与主时钟无关。
+ *   LSI 40kHz / 256 预分频 / 重载 625 = 4.0 秒超时。
+ *   4s 未喂狗几乎可断定总线死锁或任务阻塞, 复位是正确处置。
+ *   vTaskSensors 每周期喂狗; main() 启动调度器前调用 IWDG_Init()。 */
+static void IWDG_Init(void)
+{
+    IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+    IWDG_SetPrescaler(IWDG_Prescaler_256);
+    IWDG_SetReload(625);
+    IWDG_ReloadCounter();
+    IWDG_Enable();
+}
+
+static void IWDG_Feed(void)
+{
+    IWDG_ReloadCounter();
+}
+
+/* 传感器采集任务 — 200ms, prio 3 */
 static void vTaskSensors(void *pvParameters)
 {
     (void)pvParameters;
@@ -104,13 +139,7 @@ static void vTaskSensors(void *pvParameters)
     }
 }
 
-/* ==================================================================
- * 任务: 显示 (50ms周期, 优先级2)
- *
- * 5 个页面轮转: 主页(时间+语音指南) → 心率 → 血氧 → 步数 → 体温
- * 复位后默认显示主页, 按键/语音触发翻页
- * ================================================================== */
-
+/* 显示任务 — 50ms, prio 2 */
 static void vTaskDisplay(void *pvParameters)
 {
     (void)pvParameters;
@@ -151,9 +180,7 @@ static void vTaskDisplay(void *pvParameters)
     }
 }
 
-/* ==================================================================
- * 任务: 语音识别 (100ms周期, 优先级2)
- * ================================================================== */
+/* 语音识别任务 — 100ms, prio 2 */
 static void vTaskVoice(void *pvParameters)
 {
     (void)pvParameters;
@@ -163,12 +190,7 @@ static void vTaskVoice(void *pvParameters)
     }
 }
 
-/* ==================================================================
- * 任务: 蓝牙通信 (20ms周期, 优先级2)
- *
- * 每 2 秒自动上报 JSON: {"hr":N,"spo2":N,"steps":N,"temp":N.NN}
- * 接收 AT/CAL/TIME 指令
- * ================================================================== */
+/* 蓝牙通信任务 — 20ms, prio 2 */
 static void vTaskBluetooth(void *pvParameters)
 {
     (void)pvParameters;
@@ -178,9 +200,6 @@ static void vTaskBluetooth(void *pvParameters)
     }
 }
 
-/* ==================================================================
- * FreeRTOS 栈溢出钩子 — 通过 UART1 输出任务名
- * ================================================================== */
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
     (void)xTask;
@@ -194,16 +213,12 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
     for (;;) {}
 }
 
-/* ==================================================================
- * configASSERT 钩子 — FreeRTOS 内部断言失败时打印位置后死循环
- *
- * 注意: configASSERT 可能在 (1) 调度器启动前 (2) UART1 已被 HC05_Init
- * 切到 9600 的运行期 两种情形下触发。
+/* configASSERT 钩子: 可能在 (1) 调度器启动前 (2) UART1 已被 HC05_Init
+ * 切到 9600 的运行期 两种情形触发。
  *   - 情形 1: UART1 未初始化, 必须先 UART1_Init(115200) 才能打印;
  *   - 情形 2: UART1 已是 9600, 重新 Init(115200) 只是临时切波特率,
  *             反正随后即死循环, 不影响蓝牙。
- * 死循环期间 IWDG 不再被喂狗 → 4s 后系统复位, 自动尝试恢复。
- * ================================================================== */
+ * 死循环期间 IWDG 不再被喂狗 → 4s 后系统复位, 自动尝试恢复。 */
 void Assert_Handler(const char *file, int line)
 {
     taskDISABLE_INTERRUPTS();
@@ -219,37 +234,28 @@ void Assert_Handler(const char *file, int line)
     for (;;) {}
 }
 
-/* ==================================================================
- * main() — 初始化所有模块, 创建任务, 启动调度器
- * ================================================================== */
 int main(void)
 {
-    /* ===== 第1步: 系统内核初始化 ===== */
     SystemInit();
     SystemCoreClockUpdate();
     Systick_Init();
 
-    /* ===== 第2步: 通信总线初始化 ===== */
-    I2C_HAL_Init();     /* I2C1: PB8=SCL, PB9=SDA — MAX30102 + MPU6050 (重映射) */
+    I2C1_Init();        /* I2C1: PB8=SCL, PB9=SDA — MAX30102 + MPU6050 (重映射) */
     I2C2_Init();        /* I2C2: PB10=SCL, PB11=SDA — OLED SSD1306 */
     UART1_Init(115200); /* PA9=TX, PA10=RX — 调试 + HC-05 */
 
-    /* ===== 第3步: 算法层初始化 ===== */
     PPG_Init();
 
-    /* ===== 第4步: 传感器初始化 ===== */
     MAX30102_Init();    /* I2C1, 0x57 — 心率血氧 PPG */
     MPU6050_Init();     /* I2C1, 0x68 — 六轴加速度 + 芯片温度 */
     DS18B20_Init();     /* 1-Wire, PA1 — 皮肤温度 */
     DS1302_Init();      /* 三线, PB1/PB14/PB13 — RTC 时钟 */
 
-    /* ===== 第5步: 外设初始化 ===== */
     OLED_Init();        /* I2C2, 0x3C — 128x64 显示屏 */
     Keys_Init();        /* WK_UP(PA0)=翻页 */
     HC05_Init(9600);    /* UART1, 9600bps — 蓝牙 */
     ASR_Init(9600);     /* UART2, 9600bps — 语音识别 */
 
-    /* ===== 第6步: DS1302 自检 ===== */
     {
         int r = DS1302_SelfTest();
         const char *msg;
@@ -263,7 +269,6 @@ int main(void)
         UART1_Send((const uint8_t *)msg, (uint16_t)strlen(msg));
     }
 
-    /* ===== 第7步: 读取并输出当前 RTC 时间 (验证用) ===== */
     {
         rtc_time_t tm;
         DS1302_ReadTime(&tm);
@@ -274,19 +279,16 @@ int main(void)
         UART1_Send((const uint8_t *)buf, (uint16_t)strlen(buf));
     }
 
-    /* ===== 第8步: 创建 FreeRTOS 任务 ===== */
     xTaskCreate(vTaskSensors,   "Sensors", 512, NULL, 3, NULL);
     xTaskCreate(vTaskDisplay,   "Display", 512, NULL, 2, NULL);
     xTaskCreate(vTaskVoice,     "Voice",   384, NULL, 2, NULL);
     xTaskCreate(vTaskBluetooth, "BT",      384, NULL, 2, NULL);
 
-    /* ===== 第9步: 启动独立看门狗 (4s 超时) =====
-     * 放在所有初始化完成后、调度器启动前。一旦开启无法关闭,
-     * 由 vTaskSensors 每周期喂狗。若调度器未能启动 (configASSERT 触发等),
-     * 看门狗会在 4s 后复位——但这正是我们想要的故障恢复行为。 */
+    /* 启动独立看门狗 (4s 超时): 放在所有初始化完成后、调度器启动前。
+     * 一旦开启无法关闭, 由 vTaskSensors 每周期喂狗。若调度器未能启动
+     * (configASSERT 触发等), 看门狗会在 4s 后复位——但这正是我们想要的故障恢复行为。 */
     IWDG_Init();
 
-    /* ===== 第10步: 启动调度器 ===== */
     vTaskStartScheduler();
 
     /* 永远不会执行到这里 */

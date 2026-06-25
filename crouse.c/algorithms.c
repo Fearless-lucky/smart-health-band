@@ -1,7 +1,4 @@
 #include "algorithms.h"
-#include "max30102_config.h"
-#include "mpu6050_config.h"
-#include "ds18b20_config.h"
 #include "systick.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -126,7 +123,6 @@ static int compute_hr(void)
                  ? PPG_PEAK_HISTORY_MAX : (peak_count - 1);
     uint32_t start = peak_count - 1 - n;
 
-    /* 收集间隔到局部数组 */
     uint32_t iv[PPG_PEAK_HISTORY_MAX];
     for (uint32_t k = 0; k < n; k++)
         iv[k] = peak_at(start + k + 1) - peak_at(start + k);

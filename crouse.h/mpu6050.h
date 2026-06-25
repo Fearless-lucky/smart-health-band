@@ -14,4 +14,15 @@ int  MPU6050_ReadData(int16_t *ax, int16_t *ay, int16_t *az, float *chip_temp);
  * chip_temp:  芯片温度 °C         (传 NULL 跳过)
  * 返回: 0=成功, -1=I2C 错误 */
 
+/* ---- I2C 地址 (8-bit write) ---- */
+#define MPU6050_I2C_ADDR           (0x68 << 1)  /* 0xD0 */
+
+/* ---- 加速度量程 ---- */
+#define MPU6050_ACCEL_RANGE        0x00   /* ±2g */
+
+/* ---- 芯片温度计算 ---- */
+#define MPU6050_TEMP_OFFSET        36.53f /* °C 偏移 */
+#define MPU6050_TEMP_SCALE         340.0f /* LSB/°C */
+#define MPU6050_TEMP_FALLBACK      25.0f  /* 读取失败默认值 */
+
 #endif

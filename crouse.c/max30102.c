@@ -1,13 +1,9 @@
 #include "max30102.h"
-#include "max30102_config.h"
-#include "i2c_hal.h"
+#include "i2c.h"
 #include "systick.h"
 #include "algorithms.h"
 #include <string.h>
 
-/* ============================================================
- * 内部: 寄存器地址 — 仅本文件使用
- * ============================================================ */
 enum {
     REG_INTR_STATUS_1 = 0x00,
     REG_INTR_STATUS_2 = 0x01,
@@ -30,10 +26,6 @@ enum {
     REG_PART_ID       = 0xFF
 };
 
-/* ============================================================
- * 内部: I2C 助手 — 仅本文件使用
- * ============================================================ */
-
 static void write_reg(uint8_t reg, uint8_t val)
 {
     I2C_WriteReg(MAX30102_I2C_ADDR, reg, &val, 1);
@@ -45,10 +37,6 @@ static uint8_t read_reg(uint8_t reg)
     I2C_ReadReg(MAX30102_I2C_ADDR, reg, &val, 1);
     return val;
 }
-
-/* ============================================================
- * 公开 API
- * ============================================================ */
 
 int MAX30102_Init(void)
 {
@@ -101,13 +89,12 @@ int MAX30102_ReadData(int32_t *ir, int32_t *red, uint16_t *count)
     uint8_t wr = read_reg(REG_FIFO_WR_PTR);
     uint8_t rd = read_reg(REG_FIFO_RD_PTR);
 
-    int samples = (int)((wr - rd) & 0x1F);   /* 0~31 (5-bit FIFO 深度) */
+    int samples = (int)((wr - rd) & 0x1F);
     if (samples == 0) return -1;
 
     /* 一次性读取全部可用样本 (每样本 6 字节: R[18:0] + IR[18:0]) */
-    uint8_t raw[192];   /* 32 × 6 = 192 */
+    uint8_t raw[192];
     int to_read = samples * 6;
-    if (to_read > (int)sizeof(raw)) to_read = (int)sizeof(raw);
 
     if (I2C_ReadReg(MAX30102_I2C_ADDR, REG_FIFO_DATA, raw, to_read) != 0)
         return -2;

@@ -1,11 +1,7 @@
 #include "ds1302.h"
-#include "stm32f10x_gpio.h"
-#include "stm32f10x_rcc.h"
 #include "systick.h"
 #include "FreeRTOS.h"
 #include "task.h"
-
-#include "ds1302_config.h"
 
 static void ce_low(void)  { GPIO_ResetBits(DS1302_CE_PORT, DS1302_CE_PIN); }
 static void ce_high(void) { GPIO_SetBits(DS1302_CE_PORT, DS1302_CE_PIN); }
@@ -177,28 +173,23 @@ int DS1302_SelfTest(void)
     uint8_t sec, rd, orig;
     taskENTER_CRITICAL();
 
-    /* test communication: read seconds */
+    /* 1. 通信校验: 读秒寄存器, 0xFF 说明三线未接通 */
     ce_low(); clk_low(); Delay_us(4);
     ce_high(); write_byte(0x81); sec = read_byte(); ce_low();
     if (sec == 0xFF) { taskEXIT_CRITICAL(); return -1; }
 
-    /* WP off */
+    /* 2. RAM 写读校验: 备份原值 → 写 0xA5 → 回读比对 → 还原。
+     * 必须先关写保护 (WP), 否则写不进去。 */
     ce_high(); write_byte(0x8E); write_byte(0x00); ce_low(); Delay_us(4);
-
-    /* backup ram */
     ce_high(); write_byte(0xC1); orig = read_byte(); ce_low(); Delay_us(4);
-
-    /* write pattern */
     ce_high(); write_byte(0xC0); write_byte(0xA5); ce_low(); Delay_us(4);
     ce_high(); write_byte(0xC1); rd = read_byte(); ce_low();
     if (rd != 0xA5) { ce_high(); write_byte(0xC0); write_byte(orig); ce_low();
         ce_high(); write_byte(0x8E); write_byte(0x80); ce_low();
         taskEXIT_CRITICAL(); return -2; }
-
-    /* restore ram */
     ce_high(); write_byte(0xC0); write_byte(orig); ce_low(); Delay_us(4);
 
-    /* WP on, verify protected */
+    /* 3. 写保护校验: 开 WP 后写 0xFF, 回读不应为 0xFF (说明 WP 生效) */
     ce_high(); write_byte(0x8E); write_byte(0x80); ce_low(); Delay_us(4);
     ce_high(); write_byte(0xC0); write_byte(0xFF); ce_low(); Delay_us(4);
     ce_high(); write_byte(0xC1); rd = read_byte(); ce_low();

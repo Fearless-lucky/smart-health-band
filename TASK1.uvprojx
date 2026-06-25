@@ -670,14 +670,9 @@
               <FilePath>.\crouse.c\hc05.c</FilePath>
             </File>
             <File>
-              <FileName>i2c_hal.c</FileName>
+              <FileName>i2c.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\crouse.c\i2c_hal.c</FilePath>
-            </File>
-            <File>
-              <FileName>keys.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\crouse.c\keys.c</FilePath>
+              <FilePath>.\crouse.c\i2c.c</FilePath>
             </File>
             <File>
               <FileName>main.c</FileName>
@@ -705,14 +700,9 @@
               <FilePath>.\crouse.c\systick.c</FilePath>
             </File>
             <File>
-              <FileName>uart_hal.c</FileName>
+              <FileName>uart.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\crouse.c\uart_hal.c</FilePath>
-            </File>
-            <File>
-              <FileName>iwdg.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\crouse.c\iwdg.c</FilePath>
+              <FilePath>.\crouse.c\uart.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -740,34 +730,14 @@
               <FilePath>.\crouse.h\ds1302.h</FilePath>
             </File>
             <File>
-              <FileName>FreeRTOS.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\freertos\include\FreeRTOS.h</FilePath>
-            </File>
-            <File>
-              <FileName>font5x7.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\font5x7.h</FilePath>
-            </File>
-            <File>
-              <FileName>FreeRTOSConfig.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\FreeRTOSConfig.h</FilePath>
-            </File>
-            <File>
               <FileName>hc05.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\crouse.h\hc05.h</FilePath>
             </File>
             <File>
-              <FileName>i2c_hal.h</FileName>
+              <FileName>i2c.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\crouse.h\i2c_hal.h</FilePath>
-            </File>
-            <File>
-              <FileName>keys.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\keys.h</FilePath>
+              <FilePath>.\crouse.h\i2c.h</FilePath>
             </File>
             <File>
               <FileName>max30102.h</FileName>
@@ -790,19 +760,9 @@
               <FilePath>.\crouse.h\systick.h</FilePath>
             </File>
             <File>
-              <FileName>uart_hal.h</FileName>
+              <FileName>uart.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\crouse.h\uart_hal.h</FilePath>
-            </File>
-            <File>
-              <FileName>ds18b20_config.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\ds18b20_config.h</FilePath>
-            </File>
-            <File>
-              <FileName>ds1302_config.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\ds1302_config.h</FilePath>
+              <FilePath>.\crouse.h\uart.h</FilePath>
             </File>
             <File>
               <FileName>globals.h</FileName>
@@ -810,25 +770,25 @@
               <FilePath>.\crouse.h\globals.h</FilePath>
             </File>
             <File>
-              <FileName>max30102_config.h</FileName>
+              <FileName>font.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\crouse.h\max30102_config.h</FilePath>
-            </File>
-            <File>
-              <FileName>mpu6050_config.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\mpu6050_config.h</FilePath>
-            </File>
-            <File>
-              <FileName>font_cn_12x12.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\crouse.h\font_cn_12x12.h</FilePath>
+              <FilePath>.\crouse.h\font.h</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
           <GroupName>FreeRtos</GroupName>
           <Files>
+            <File>
+              <FileName>FreeRTOS.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\freertos\include\FreeRTOS.h</FilePath>
+            </File>
+            <File>
+              <FileName>FreeRTOSConfig.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\crouse.h\FreeRTOSConfig.h</FilePath>
+            </File>
             <File>
               <FileName>atomic.h</FileName>
               <FileType>5</FileType>

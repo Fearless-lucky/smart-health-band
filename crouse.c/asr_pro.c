@@ -1,5 +1,5 @@
 #include "asr_pro.h"
-#include "uart_hal.h"
+#include "uart.h"
 #include "stm32f10x_usart.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -42,7 +42,7 @@ void ASR_ProcessUART(void)
             OLED_ShowTemperature();
             break;
         case ASR_CMD_TIME:
-            OLED_ShowTime();   /* 时间页: 大号时间显示 */
+            OLED_ShowTime();
             break;
         case ASR_CMD_MAIN:
             OLED_ShowMainPage();

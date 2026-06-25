@@ -24,7 +24,7 @@ Open `TASK1.uvprojx` in Keil MDK to build and flash. There are no CLI build scri
 
 ```
 crouse.c/       ← Application source code (all user-written .c files)
-crouse.h/       ← Application headers + FreeRTOSConfig.h + *_config.h parameter files
+crouse.h/       ← Application headers + FreeRTOSConfig.h
 Device/         ← STM32F10x startup, system init, StdPeriph drivers
 Core/           ← CMSIS-CORE headers and templates (not user code)
 freertos/       ← FreeRTOS kernel source (include/, portable/, src/)
@@ -40,7 +40,9 @@ docs/           ← Technical documentation source (markdown) and generated .doc
 - **I2C1** (PB8=SCL, PB9=SDA, Remap): Shared bus for MAX30102 (PPG) and MPU6050 (IMU). Mutex-protected via `g_i2c_mutex`.
 - **I2C2** (PB10=SCL, PB11=SDA): Dedicated bus for SSD1306 OLED only. Mutex-protected via `g_i2c2_mutex`.
 
-**Note**: Splitting the OLED onto its own I2C bus avoids bandwidth contention with the 100Hz MAX30102 sensor. The README and `i2c_hal.c` are now consistent on this wiring:
+**Note**: Splitting the OLED onto its own I2C bus avoids bandwidth contention with the 100Hz MAX30102 sensor. The wiring is:
+
+| I2C Bus | SCL | SDA | Devices |
 
 | I2C Bus | SCL | SDA | Devices |
 |---------|-----|-----|---------|
@@ -62,20 +64,21 @@ Priority 3 for Sensors ensures PPG FIFO reads are not delayed (MAX30102 has only
 
 ### Unified Sensor API Pattern
 
-Every sensor driver follows the same three-file, three-function convention:
+Every sensor driver has a `.c` (implementation) and `.h` (public API + hardware configuration). No separate `*_config.h` — tuning constants live in the header alongside the API:
 
 | File | Purpose |
 |------|---------|
 | `xxx.c` | Implementation — register config, data read, error handling |
-| `xxx.h` | Public API — only exposes `Init()` + `ReadData()` (+ `StartXxx()` for async) |
-| `xxx_config.h` | All tunable parameters (hardware addresses, algorithm constants) in one place |
+| `xxx.h` | Public API + all tunable parameters (I2C address, register values, pin assignments, calibration constants) |
 
 **Function conventions:**
 - `Init()` → returns `int`: 0 = success, negative = error code
 - `ReadData()` → returns `int`: 0 = success, negative = error; data outputs via pointer parameters (pass `NULL` to skip unwanted fields)
 - `StartXxx()` → only for async sensors (DS18B20) that need a conversion delay before `ReadData()`
 
-**Why this pattern?** To change a parameter (e.g. LED current, EMA weight, threshold), you only open `xxx_config.h` — you don't need to read the driver implementation. To understand a sensor, you only read its `.h` file — the API surface is exactly two or three functions.
+**Algorithm tuning parameters** (filter cutoffs, EMA weights, thresholds, step counting constants, temperature compensation): defined in `algorithms.h` — the algorithm layer is self-contained.
+
+**Why this pattern?** To change a sensor hardware parameter (e.g. LED current, I2C address), you open `xxx.h`. To change an algorithm parameter, you open `algorithms.h`. You don't need to read the driver implementation.
 
 ### Code Layering (4-tier architecture)
 
@@ -83,7 +86,7 @@ Every sensor driver follows the same three-file, three-function convention:
 Application layer  (main.c, task functions)   ← "what to do"
 Algorithm layer    (algorithms.c)              ← "how to calculate"
 Driver layer       (max30102.c, mpu6050.c…)    ← "how to read"
-Hardware abstraction (i2c_hal.c, uart_hal.c)   ← "how to transmit"
+Hardware abstraction (i2c.c, uart.c)   ← "how to transmit"
                           │
                   STM32 HAL / CMSIS / Registers ← hardware
 ```
@@ -129,7 +132,7 @@ UART2 (PA2=TX, PA3=RX) at 9600 baud. Single-byte command codes: 0x01–0x09 map 
 - **OERR handling**: `HC05_Process()` and `ASR_ProcessUART()` explicitly clear UART Overrun Error flag on each poll cycle to prevent receive lockup.
 - **MAX30102 FIFO read pattern**: Reads wr/rd pointers separately (two I2C transactions) → computes available samples via `(wr-rd) & 0x1F` → burst-reads register 0x07 for N×6 bytes → decodes 18-bit IR/Red values → feeds to PPG_ProcessSamples(). The two-pointer reads are not atomic, but this is safe: we read what was available at wr snapshot; new data arriving between reads stays for next cycle.
 - **OLED dirty-page optimization**: Only pages with modified content are flushed to I2C2 (`dirty[8]` bitmask). Each flush writes page address + 128 bytes of framebuffer data.
-- **FreeRTOS mutex init ordering**: Mutexes are created in `I2C_HAL_Init()`/`I2C2_Init()`, which are called in `main()` BEFORE `vTaskStartScheduler()`. This is safe — FreeRTOS mutex/semaphore APIs work before scheduler start.
+- **FreeRTOS mutex init ordering**: Mutexes are created in `I2C1_Init()`/`I2C2_Init()`, which are called in `main()` BEFORE `vTaskStartScheduler()`. This is safe — FreeRTOS mutex/semaphore APIs work before scheduler start.
 
 ## Known Concurrency Gotchas
 
@@ -165,24 +168,24 @@ These return `static volatile int` values from [algorithms.c](crouse.c/algorithm
 
 - **Task stack sizes**: Adjust in [main.c](crouse.c/main.c) (3rd argument to `xTaskCreate`). Current: Sensors/Display 512, Voice/BT 384 **words** (×4 = bytes). When modifying the Sensors task, note that `MAX30102_ReadData()` uses ~448 bytes of stack (`raw[192]` + `ir_dec[32]` + `red_dec[32]`), consuming ~22% of the 2KB stack budget.
 - **FreeRTOS configuration**: [FreeRTOSConfig.h](crouse.h/FreeRTOSConfig.h) — heap size (15KB), max priorities (5), tick rate (1000Hz), stack overflow detection enabled (method 1).
-- **Sensor hardware parameters** (I2C addresses, register values, pin assignments): Edit the relevant `*_config.h` file in [crouse.h/](crouse.h/).
-- **Algorithm tuning parameters** (filter cutoffs, EMA weights, thresholds, calibration constants): Also in `*_config.h` files — `max30102_config.h` for PPG, `mpu6050_config.h` for step counting, `ds18b20_config.h` for temperature compensation.
-- **I2C bus assignments** and mutex logic: [i2c_hal.c](crouse.c/i2c_hal.c). The unified `i2c_xfer()` function handles both buses.
+- **Sensor hardware parameters** (I2C addresses, register values, pin assignments): Edit the sensor's `.h` file in [crouse.h/](crouse.h/) — e.g. `max30102.h` for MAX30102, `mpu6050.h` for MPU6050, `ds18b20.h` for DS18B20, `ds1302.h` for DS1302.
+- **Algorithm tuning parameters** (filter cutoffs, EMA weights, thresholds, calibration constants): Edit [algorithms.h](crouse.h/algorithms.h) — the `PPG_*`, `STEP_*`, `TEMP_*`, `SPO2_*` macros.
+- **I2C bus assignments** and mutex logic: [i2c.c](crouse.c/i2c.c). The unified `i2c_xfer()` function handles both buses.
 
 ## Complete Pin Map
 
 | Pin   | Function          | Peripheral      | Config File         |
 |-------|-------------------|-----------------|---------------------|
-| PA0   | Key (WK_UP)       | GPIO Out OD     | keys.c              |
-| PA1   | DS18B20 DQ        | 1-Wire (GPIO)   | ds18b20_config.h    |
-| PA2   | ASR PRO TX        | USART2          | uart_hal.c          |
-| PA3   | ASR PRO RX        | USART2          | uart_hal.c          |
-| PA9   | HC-05 TX          | USART1          | uart_hal.c          |
-| PA10  | HC-05 RX          | USART1          | uart_hal.c          |
-| PB1   | DS1302 CLK        | GPIO bit-bang   | ds1302_config.h     |
-| PB8   | I2C1 SCL          | I2C1 (Remap)    | i2c_hal.c           |
-| PB9   | I2C1 SDA          | I2C1 (Remap)    | i2c_hal.c           |
-| PB10  | I2C2 SCL          | I2C2            | i2c_hal.c           |
-| PB11  | I2C2 SDA          | I2C2            | i2c_hal.c           |
-| PB13  | DS1302 CE         | GPIO bit-bang   | ds1302_config.h     |
-| PB14  | DS1302 DAT        | GPIO bit-bang   | ds1302_config.h     |
+| PA0   | Key (WK_UP)       | GPIO Out OD     | main.c              |
+| PA1   | DS18B20 DQ        | 1-Wire (GPIO)   | ds18b20.h           |
+| PA2   | ASR PRO TX        | USART2          | uart.c              |
+| PA3   | ASR PRO RX        | USART2          | uart.c              |
+| PA9   | HC-05 TX          | USART1          | uart.c              |
+| PA10  | HC-05 RX          | USART1          | uart.c              |
+| PB1   | DS1302 CLK        | GPIO bit-bang   | ds1302.h            |
+| PB8   | I2C1 SCL          | I2C1 (Remap)    | i2c.c               |
+| PB9   | I2C1 SDA          | I2C1 (Remap)    | i2c.c               |
+| PB10  | I2C2 SCL          | I2C2            | i2c.c               |
+| PB11  | I2C2 SDA          | I2C2            | i2c.c               |
+| PB13  | DS1302 CE         | GPIO bit-bang   | ds1302.h            |
+| PB14  | DS1302 DAT        | GPIO bit-bang   | ds1302.h            |

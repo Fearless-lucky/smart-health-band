@@ -1,0 +1,8 @@
+{
+  "name": "temp-docx",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "docx": "^9.7.1"
+  }
+}

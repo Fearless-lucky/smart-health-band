@@ -2,9 +2,10 @@
 #define __DS18B20_H
 
 #include <stdint.h>
+#include "stm32f10x.h"
 
 /* 通信: 1-Wire (单总线), 需 4.7kΩ 上拉到 3.3V
- * 引脚: 见 ds18b20_config.h
+ * 引脚: PA1 = DQ
  * 用法: 先 StartConversion(), 等待 ≥750ms, 再 ReadData() */
 
 int  DS18B20_Init(void);
@@ -16,5 +17,9 @@ void DS18B20_StartConversion(void);
 int  DS18B20_ReadData(float *temperature);
 /* 发送 Skip ROM + Read Scratchpad, CRC 校验后返回温度 °C
  * 返回: 0=成功, -1=CRC 校验失败, -2=总线无响应 */
+
+/* ---- GPIO 引脚 ---- */
+#define DS18B20_PORT               GPIOA
+#define DS18B20_PIN                GPIO_Pin_1
 
 #endif

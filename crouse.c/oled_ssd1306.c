@@ -1,12 +1,10 @@
 #include "oled_ssd1306.h"
-#include "i2c_hal.h"
+#include "i2c.h"
 #include "systick.h"
 #include "algorithms.h"
 #include "ds1302.h"
 #include "globals.h"
-#include "font5x7.h"
-#include "font_cn_16x16.h"
-#include "font_cn_12x12.h"
+#include "font.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
@@ -17,17 +15,10 @@
 #define CMD 0x00
 #define DAT 0x40
 
-/* ============================================================
- * framebuf 并发保护
- *
- * framebuf / dirty 被 vTaskDisplay (心率/血氧/步数/体温/时间页)
- * 和 vTaskVoice (ASR 指令触发的 Show* 调用) 同时访问, 两者优先级相同
- * (prio 2), 存在时间片抢占。若一个任务的 Clear+Draw+Flush 序列被
- * 另一任务打断, 会显示两页混杂的花屏。
- *
- * 用互斥锁把每个 Show* 函数的整段 (Clear→Draw→Flush) 包成原子操作。
- * 底层 Clear/DrawChar/DrawString/Flush 不加锁, 由上层 Show* 保证
- * 序列完整性 (避免递归加锁)。 */
+/* framebuf 并发保护: vTaskDisplay 与 vTaskVoice 同优先级 (prio 2), 时间片
+ * 抢占会打断 Clear+Draw+Flush 序列导致花屏。互斥锁把每个 Show* 的整段
+ * (Clear→Draw→Flush) 包成原子操作; 底层 Clear/DrawChar/DrawString/Flush
+ * 不加锁, 由上层 Show* 保证序列完整性 (避免递归加锁)。 */
 static SemaphoreHandle_t g_oled_mutex = NULL;
 
 static uint8_t framebuf[8][128];
@@ -36,11 +27,6 @@ static uint8_t dirty[8];
 static void write_cmd(uint8_t cmd)
 {
     I2C2_WriteReg(SSD1306_ADDR, CMD, &cmd, 1);
-}
-
-static void write_data(uint8_t *data, uint16_t len)
-{
-    I2C2_WriteReg(SSD1306_ADDR, DAT, data, len);
 }
 
 /* 取/还 framebuf 互斥锁。Show* 函数入口 take、出口 give。
@@ -125,16 +111,12 @@ void OLED_Flush(void)
         write_cmd(0xB0 + page);
         write_cmd(0x00);
         write_cmd(0x10);
-        write_data(framebuf[page], 128);
+        I2C2_WriteReg(SSD1306_ADDR, DAT, framebuf[page], 128);
         dirty[page] = 0;
     }
 }
 
-/* ============================================================
- * 像素级绘图原语 + 居中排版工具
- * ============================================================ */
-
-/* 设置单个像素 (x: 0-127, y: 0-63) */
+/* 设置单个像素 */
 static void oled_setpixel(uint8_t x, uint8_t y)
 {
     if (x > 127 || y > 63) return;
@@ -142,7 +124,6 @@ static void oled_setpixel(uint8_t x, uint8_t y)
     dirty[y / 8] = 1;
 }
 
-/* 画一条贯穿整屏宽度的水平线 */
 static void oled_hline(uint8_t y)
 {
     if (y > 63) return;
@@ -178,40 +159,10 @@ static void oled_drawchar_big(uint8_t x, uint8_t page, char c)
 /* 小字体居中绘制 (6px/字符) */
 static void oled_drawstr_center(uint8_t page, const char *s)
 {
-    uint8_t len = 0;
-    while (s[len]) len++;
+    uint8_t len = (uint8_t)strlen(s);
     if (len == 0) return;
     uint8_t x = (128 - len * 6) / 2;
     OLED_DrawString(x, page, s);
-}
-
-/* 绘制单个 16x16 中文字符 (通过索引)。占 2 个 page。 */
-static void oled_draw_cn(uint8_t x, uint8_t page, uint8_t idx)
-{
-    if (idx >= CN_COUNT) return;
-    const uint8_t *p = font_cn[idx];
-    uint8_t base_y = page * 8;
-    for (uint8_t row = 0; row < 16; row++) {
-        uint8_t hi = p[row * 2];
-        uint8_t lo = p[row * 2 + 1];
-        for (uint8_t col = 0; col < 8; col++) {
-            if (hi & (0x80 >> col))
-                oled_setpixel(x + col, base_y + row);
-        }
-        for (uint8_t col = 0; col < 8; col++) {
-            if (lo & (0x80 >> col))
-                oled_setpixel(x + 8 + col, base_y + row);
-        }
-    }
-}
-
-/* 绘制中文指令字符串 (索引数组, 每个索引对应一个汉字)。
- * n 个汉字, 每字 16px 紧密排列 (无间距), 在指定 page 行起始 x 处绘制。
- * 4 字 = 64px, 双列 x=0 和 x=64 恰好填满 128px。 */
-static void oled_draw_cn_str(uint8_t x, uint8_t page, const uint8_t *idxs, uint8_t n)
-{
-    for (uint8_t i = 0; i < n; i++)
-        oled_draw_cn(x + i * 16, page, idxs[i]);
 }
 
 /* --- 12x12 中文字体绘制 (用于主页紧凑布局) ---
@@ -266,8 +217,7 @@ static void oled_drawstr_at(uint8_t x, uint8_t y, const char *s)
 /* 5x7 字符串在任意 y 坐标居中绘制 */
 static void oled_drawstr_at_center(uint8_t y, const char *s)
 {
-    uint8_t len = 0;
-    while (s[len]) len++;
+    uint8_t len = (uint8_t)strlen(s);
     if (len == 0) return;
     uint8_t x = (128 - len * 6) / 2;
     oled_drawstr_at(x, y, s);
@@ -276,8 +226,7 @@ static void oled_drawstr_at_center(uint8_t y, const char *s)
 /* 2 倍放大字体居中绘制 (12px/字符, 占 2 page) */
 static void oled_drawstr_big_center(uint8_t page, const char *s)
 {
-    uint8_t len = 0;
-    while (s[len]) len++;
+    uint8_t len = (uint8_t)strlen(s);
     if (len == 0) return;
     uint8_t x = (128 - len * 12) / 2;
     for (uint8_t i = 0; i < len; i++)
@@ -290,8 +239,7 @@ static void oled_drawstr_big_center(uint8_t page, const char *s)
  * 占 page 2~3, 垂直位置与大号数值一致。 */
 static void oled_drawtemp_big_center(uint8_t page, const char *numstr)
 {
-    uint8_t numlen = 0;
-    while (numstr[numlen]) numlen++;
+    uint8_t numlen = (uint8_t)strlen(numstr);
     /* 总宽 = 数值(numlen*12) + °(6) + C(12) */
     uint8_t total = numlen * 12 + 6 + 12;
     uint8_t x = (128 - total) / 2;
@@ -310,11 +258,9 @@ static void oled_drawtemp_big_center(uint8_t page, const char *numstr)
     oled_drawchar_big(dx + 6, page, 'C');
 }
 
-/* ============================================================
- * 上层显示函数 — 统一布局: 标题(居中) → 分隔线 → 大号数值(居中)
+/* 上层显示函数 — 统一布局: 标题(居中) → 分隔线 → 大号数值(居中)
  * → 单位(居中) → 副标题(居中) → 底部分隔线。
- * 每个整段 (Clear+Draw+Flush) 用互斥锁保护。
- * ============================================================ */
+ * 每个整段 (Clear+Draw+Flush) 用互斥锁保护。 */
 
 /* 主页 — 手表风格: 顶部大号时间 + 小号日期 + 6条语音指令(中文,对齐)。
  *
@@ -448,9 +394,7 @@ void OLED_ShowSteps(int steps)
     oled_unlock();
 }
 
-/* 体温页 — 统一封装, 消除 main.c / asr_pro.c / ShowMainPage 三处重复,
- * 且整段加锁避免与 Display 任务的体温页刷新交叉花屏。
- * 温度数值后直接绘制 °C 符号 (°不在字体表内, 用像素拼出)。 */
+/* 体温页 — 温度数值后直接绘制 °C 符号 (°不在字体表内, 用像素拼出)。 */
 void OLED_ShowTemperature(void)
 {
     if (oled_lock() != 0) return;
@@ -476,7 +420,6 @@ void OLED_ShowTemperature(void)
     oled_unlock();
 }
 
-/* 时间页 — 统一封装, 消除 main.c / asr_pro.c 两处重复。 */
 void OLED_ShowTime(void)
 {
     if (oled_lock() != 0) return;
@@ -499,7 +442,7 @@ void OLED_ShowTime(void)
     oled_unlock();
 }
 
-/* 活动状态页 — ASR 指令触发, 统一带锁。 */
+/* 活动状态页 — ASR 指令触发。 */
 void OLED_ShowActivity(activity_t act)
 {
     if (oled_lock() != 0) return;

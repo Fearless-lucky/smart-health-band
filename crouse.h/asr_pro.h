@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* Voice command codes (configured in ASR PRO module firmware) */
+/* 语音指令码 — 由 ASR PRO 模块固件烧录决定, 此处必须与固件一致, 不可单方修改 */
 #define ASR_CMD_HR        0x01
 #define ASR_CMD_STEPS     0x02
 #define ASR_CMD_STEPRST   0x03

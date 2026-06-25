@@ -1,7 +1,6 @@
 #include "hc05.h"
-#include "uart_hal.h"
+#include "uart.h"
 #include "algorithms.h"
-#include "max30102_config.h"
 #include "ds1302.h"
 #include "globals.h"
 #include "systick.h"
@@ -50,11 +49,6 @@ void HC05_Init(uint32_t baud)
         }
     }
     UART1_Init(baud);
-}
-
-void HC05_SendData(const uint8_t *buf, uint16_t len)
-{
-    UART1_Send(buf, len);
 }
 
 void HC05_Process(void)
@@ -107,10 +101,9 @@ void HC05_Process(void)
         int   valid;
         float temp;
         Get_Temperature(&valid, &temp);
-        float temp_out = valid ? temp : 0.0f;
         int n = snprintf(txbuf, sizeof(txbuf),
             "{\"hr\":%d,\"spo2\":%d,\"steps\":%d,\"temp\":%.2f}\r\n",
-            hr, spo2, steps, (double)temp_out);
+            hr, spo2, steps, (double)(valid ? temp : 0.0f));
         if (n > 0) UART1_Send((uint8_t *)txbuf, (uint16_t)n);
     }
 }

@@ -16,4 +16,13 @@ int  MAX30102_ReadData(int32_t *ir, int32_t *red, uint16_t *count);
  *        输出: 实际写入的样本数
  * 返回: 0=成功, -1=无新数据, -2=I2C 错误 */
 
+/* ---- I2C 地址 (8-bit write) ---- */
+#define MAX30102_I2C_ADDR          (0x57 << 1)  /* 0xAE */
+
+/* ---- 初始化寄存器配置 ---- */
+#define MAX30102_SPO2_CONFIG       0x47   /* ADC=4096, SR=100Hz, PW=411us */
+#define MAX30102_LED1_CURRENT      0x50   /* IR LED 电流 ~16mA */
+#define MAX30102_LED2_CURRENT      0x50   /* Red LED 电流 ~16mA */
+#define MAX30102_FIFO_CONFIG       0x10   /* 滚动覆盖, 不平均 */
+
 #endif
