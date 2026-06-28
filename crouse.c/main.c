@@ -51,24 +51,16 @@ static void Keys_Init(void)
 /* 无阻塞消抖: 调用周期 50ms, 远大于机械抖动 (<10ms),
  * 两次采样间毛刺不构成"持续按下", 无需 vTaskDelay 消抖。
  * 仅保留 300ms 防连按。 */
-static int key_read(GPIO_TypeDef *port, uint16_t pin,
-                    int active_high, uint32_t *last_tick)
-{
-    uint8_t cur = GPIO_ReadInputDataBit(port, pin);
-    int pressed = active_high ? (cur == Bit_SET) : (cur == Bit_RESET);
-    if (!pressed) return 0;
-
-    uint32_t now = xTaskGetTickCount();
-    if (now - *last_tick <= pdMS_TO_TICKS(300)) return 0;
-
-    *last_tick = now;
-    return 1;
-}
-
 static int Key_Get(void)
 {
-    static uint32_t t;
-    return key_read(GPIOA, GPIO_Pin_0, 1, &t);
+    static uint32_t last_tick;
+    if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == Bit_RESET) return 0;
+
+    uint32_t now = xTaskGetTickCount();
+    if (now - last_tick <= pdMS_TO_TICKS(300)) return 0;
+
+    last_tick = now;
+    return 1;
 }
 
 /* 独立看门狗 (IWDG) — 基于 LSI (~40kHz), 与主时钟无关。
@@ -79,14 +71,9 @@ static void IWDG_Init(void)
 {
     IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
     IWDG_SetPrescaler(IWDG_Prescaler_256);
-    IWDG_SetReload(625);
+    IWDG_SetReload(625);// 看门狗时间4s
     IWDG_ReloadCounter();
     IWDG_Enable();
-}
-
-static void IWDG_Feed(void)
-{
-    IWDG_ReloadCounter();
 }
 
 /* 传感器采集任务 — 200ms, prio 3 */
@@ -99,15 +86,12 @@ static void vTaskSensors(void *pvParameters)
         /* 喂狗: IWDG 4s 超时, 正常每轮 ≤ 1s, 余量充足。
          * 放在循环顶部保证两条出口路径 (正常 vTaskDelay / DS18B20 continue)
          * 都能在每轮触发, 不会因 continue 跳过。 */
-        IWDG_Feed();
+        IWDG_ReloadCounter();
 
         /* MAX30102 — 读 FIFO, 内部自动调用 PPG_ProcessSamples()
          * 传 NULL: 原始样本已在驱动内部送入 PPG 算法层, 这里无需拷贝,
          * 避免在任务栈上分配 1KB 缓冲区 (Sensors 栈仅 2KB)。 */
-        {
-            uint16_t count = 0;
-            MAX30102_ReadData(NULL, NULL, &count);
-        }
+        MAX30102_ReadData(NULL, NULL, NULL);
 
         /* MPU6050 — 读加速度和芯片温度 (一次 I2C 批量读取 8 字节)
          * mpu_ok 标志: 仅在温度传感器可用时才标记体温有效,
@@ -200,7 +184,7 @@ static void vTaskBluetooth(void *pvParameters)
     }
 }
 
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)//输出任务栈溢出信息
 {
     (void)xTask;
     UART1_Init(115200);
@@ -210,7 +194,7 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
         UART1_Send((const uint8_t *)pcTaskName, (uint16_t)strlen(pcTaskName));
     }
     UART1_Send((const uint8_t *)"\r\n", 2);
-    for (;;) {}
+    for (;;) {}//死循环，等看门狗复位
 }
 
 /* configASSERT 钩子: 可能在 (1) 调度器启动前 (2) UART1 已被 HC05_Init
@@ -219,7 +203,7 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
  *   - 情形 2: UART1 已是 9600, 重新 Init(115200) 只是临时切波特率,
  *             反正随后即死循环, 不影响蓝牙。
  * 死循环期间 IWDG 不再被喂狗 → 4s 后系统复位, 自动尝试恢复。 */
-void Assert_Handler(const char *file, int line)
+void Assert_Handler(const char *file, int line)//输出断言失败信息
 {
     taskDISABLE_INTERRUPTS();
     UART1_Init(115200);
@@ -270,7 +254,7 @@ int main(void)
     }
 
     {
-        rtc_time_t tm;
+        rtc_time_t tm;//时间结构体
         DS1302_ReadTime(&tm);
         char buf[64];
         snprintf(buf, sizeof(buf),

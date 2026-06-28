@@ -283,14 +283,6 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
     }
 }
 
-void Set_SpO2_Calibration(float A, float B)
-{
-    taskENTER_CRITICAL();
-    spo2_cal_A = A;
-    spo2_cal_B = B;
-    taskEXIT_CRITICAL();
-}
-
 int   Get_HeartRate(void)  { return hr; }
 int   Get_SpO2(void)       { return spo2; }
 

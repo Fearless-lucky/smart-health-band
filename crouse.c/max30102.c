@@ -81,16 +81,15 @@ int MAX30102_Init(void)
 
 int MAX30102_ReadData(int32_t *ir, int32_t *red, uint16_t *count)
 {
-    if (!count) return -2;
-    uint16_t capacity = *count;
-    *count = 0;
-
     /* 读取 FIFO 读写指针，计算可用样本数 */
     uint8_t wr = read_reg(REG_FIFO_WR_PTR);
     uint8_t rd = read_reg(REG_FIFO_RD_PTR);
 
     int samples = (int)((wr - rd) & 0x1F);
-    if (samples == 0) return -1;
+    if (samples == 0) {
+        if (count) *count = 0;
+        return -1;
+    }
 
     /* 一次性读取全部可用样本 (每样本 6 字节: R[18:0] + IR[18:0]) */
     uint8_t raw[192];
@@ -114,12 +113,13 @@ int MAX30102_ReadData(int32_t *ir, int32_t *red, uint16_t *count)
     }
 
     /* 输出到调用方缓冲区 */
+    uint16_t capacity = count ? *count : 0;
     int out_n = (samples < (int)capacity) ? samples : (int)capacity;
     for (int i = 0; i < out_n; i++) {
         if (ir)  ir[i]  = ir_dec[i];
         if (red) red[i] = red_dec[i];
     }
-    *count = (uint16_t)out_n;
+    if (count) *count = (uint16_t)out_n;
 
     /* 送入 PPG 算法层处理 */
     PPG_ProcessSamples(ir_dec, red_dec, (uint16_t)samples);

@@ -9,8 +9,6 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len);
 int  Get_HeartRate(void);
 int  Get_SpO2(void);
 
-void Set_SpO2_Calibration(float A, float B);
-
 typedef enum {
     ACTIVITY_UNKNOWN = 0,
     ACTIVITY_WALKING,

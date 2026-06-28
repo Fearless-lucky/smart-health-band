@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include "stm32f10x.h"
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_rcc.h"
 
 /* 通信: 1-Wire (单总线), 需 4.7kΩ 上拉到 3.3V
  * 引脚: PA1 = DQ

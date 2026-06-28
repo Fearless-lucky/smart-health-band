@@ -1,7 +1,6 @@
 #include "hc05.h"
 #include "uart.h"
 #include "algorithms.h"
-#include "ds1302.h"
 #include "globals.h"
 #include "systick.h"
 #include "FreeRTOS.h"
@@ -12,9 +11,9 @@
 
 static char txbuf[128];
 static uint32_t last_report_tick = 0;
-#define HC05_REPORT_INTERVAL_MS  2000
+#define HC05_REPORT_INTERVAL_MS  10000
 
-static int hc05_try_baud(uint32_t baud)
+static int hc05_try_baud(uint32_t baud)//检测并适应波特率
 {
     UART1_Init(baud);
 
@@ -53,45 +52,6 @@ void HC05_Init(uint32_t baud)
 
 void HC05_Process(void)
 {
-    static char rxbuf[128];
-    static uint16_t rxi = 0;
-
-    /* 清除 Overrun Error，否则 UART 会停止接收 */
-    if (USART_GetFlagStatus(USART1, USART_FLAG_ORE) != RESET) {
-        (void)USART_ReceiveData(USART1);
-    }
-
-    while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) != RESET) {
-        char c = (char)USART_ReceiveData(USART1);
-        if (c == '\n' || c == '\r') {
-            if (rxi > 0) {
-                rxbuf[rxi] = '\0';
-                if (strncmp(rxbuf, "CAL", 3) == 0) {
-                    float A = SPO2_CAL_A, B = SPO2_CAL_B;
-                    if (sscanf(rxbuf + 3, "%f %f", &A, &B) >= 1) {
-                        Set_SpO2_Calibration(A, B);
-                    }
-                } else if (strncmp(rxbuf, "TIME", 4) == 0) {
-                    int h, m, s, d, mo, y;
-                    if (sscanf(rxbuf + 4, "%d:%d:%d %d/%d/%d",
-                               &h, &m, &s, &d, &mo, &y) >= 5) {
-                        rtc_time_t tm;
-                        tm.hour  = (uint8_t)h;
-                        tm.min   = (uint8_t)m;
-                        tm.sec   = (uint8_t)s;
-                        tm.day   = (uint8_t)d;
-                        tm.month = (uint8_t)mo;
-                        tm.year  = (uint8_t)y;
-                        DS1302_WriteTime(&tm);
-                    }
-                }
-            }
-            rxi = 0;
-        } else {
-            if (rxi < sizeof(rxbuf) - 1) rxbuf[rxi++] = c;
-        }
-    }
-
     uint32_t now = Systick_GetTick();
     if ((now - last_report_tick) >= HC05_REPORT_INTERVAL_MS) {
         last_report_tick = now;
@@ -102,7 +62,12 @@ void HC05_Process(void)
         float temp;
         Get_Temperature(&valid, &temp);
         int n = snprintf(txbuf, sizeof(txbuf),
-            "{\"hr\":%d,\"spo2\":%d,\"steps\":%d,\"temp\":%.2f}\r\n",
+            "\r\n==== 健康数据 ====\r\n"
+            "心率: %d bpm\r\n"
+            "血氧: %d %%\r\n"
+            "步数: %d 步\r\n"
+            "体温: %.2f C\r\n"
+            "==================\r\n",
             hr, spo2, steps, (double)(valid ? temp : 0.0f));
         if (n > 0) UART1_Send((uint8_t *)txbuf, (uint16_t)n);
     }
