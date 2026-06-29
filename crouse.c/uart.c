@@ -9,30 +9,28 @@ static void uart_init(USART_TypeDef *usart, uint32_t baud)
 {
     USART_InitTypeDef cfg;
     USART_StructInit(&cfg);
-    cfg.USART_BaudRate            = baud;
-    cfg.USART_WordLength          = USART_WordLength_8b;
-    cfg.USART_StopBits            = USART_StopBits_1;
-    cfg.USART_Parity              = USART_Parity_No;
-    cfg.USART_Mode                = USART_Mode_Rx | USART_Mode_Tx;
-    cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    cfg.USART_BaudRate= baud; // 波特率
+    cfg.USART_WordLength= USART_WordLength_8b;// 8 位数据
+    cfg.USART_StopBits= USART_StopBits_1;// 1 位停止位
+    cfg.USART_Parity= USART_Parity_No;// 无校验
+    cfg.USART_Mode= USART_Mode_Rx | USART_Mode_Tx;// 收+发
+    cfg.USART_HardwareFlowControl= USART_HardwareFlowControl_None;// 无流控
     USART_Init(usart, &cfg);
     USART_Cmd(usart, ENABLE);
 }
 
-static int uart_send(USART_TypeDef *usart, const uint8_t *data, uint16_t len)
+int UART1_Send(const uint8_t *data, uint16_t len)
 {
-    /* 每字节独立超时 (200ms/字节), 避免长帧发送过程中前几字节
-     * 耗尽总预算导致后续字节截帧。 */
     for (uint16_t i = 0; i < len; i++) {
         uint32_t t0 = Systick_GetTick();
-        USART_SendData(usart, data[i]);
-        while (USART_GetFlagStatus(usart, USART_FLAG_TXE) == RESET) {
+        USART_SendData(USART1, data[i]);
+        while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET) {
             if ((Systick_GetTick() - t0) > 200) return -1;
         }
     }
     {
         uint32_t t0 = Systick_GetTick();
-        while (USART_GetFlagStatus(usart, USART_FLAG_TC) == RESET) {
+        while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET) {
             if ((Systick_GetTick() - t0) > 200) return -1;
         }
     }
@@ -52,8 +50,6 @@ void UART1_Init(uint32_t baud)
     GPIO_Init(GPIOA, &gpio);
     uart_init(USART1, baud);
 }
-
-int UART1_Send(const uint8_t *data, uint16_t len)  { return uart_send(USART1, data, len); }
 
 void UART2_Init(uint32_t baud)
 {

@@ -34,18 +34,17 @@ static int hc05_try_baud(uint32_t baud)//检测并适应波特率
 
 void HC05_Init(uint32_t baud)
 {
-    if (hc05_try_baud(baud) == 0) return;
-
-    static const uint32_t fallbacks[] = {38400, 115200, 57600, 19200};
-    for (int i = 0; i < 4; i++) {
-        if (hc05_try_baud(fallbacks[i]) == 0) {
+    const uint32_t try_list[] = { baud, 38400, 115200, 57600, 19200 };
+    for (int i = 0; i < 5; i++) {
+        if (hc05_try_baud(try_list[i]) != 0) continue;
+        if (i > 0) {                          /* fallback 命中: 改回首选波特率 */
             char cmd[32];
             int n = snprintf(cmd, sizeof(cmd), "AT+UART=%lu,0,0\r\n", (unsigned long)baud);
             UART1_Send((const uint8_t *)cmd, (uint16_t)n);
             Delay_ms(200);
             UART1_Init(baud);
-            return;
         }
+        return;
     }
     UART1_Init(baud);
 }

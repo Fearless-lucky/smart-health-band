@@ -25,18 +25,13 @@ static void dat_in(void)//单线输入
     GPIO_Init(DS1302_DAT_PORT, &cfg);
 }
 
-static void dat_set(uint8_t v)//线上置位
-{
-    if (v) GPIO_SetBits(DS1302_DAT_PORT, DS1302_DAT_PIN);
-    else   GPIO_ResetBits(DS1302_DAT_PORT, DS1302_DAT_PIN);
-}
-
 static void write_byte(uint8_t b)
 {
     dat_out();
     for (int i = 0; i < 8; i++) {
         clk_low();
-        dat_set(b & 0x01);
+        if (b & 0x01) GPIO_SetBits(DS1302_DAT_PORT, DS1302_DAT_PIN);
+        else          GPIO_ResetBits(DS1302_DAT_PORT, DS1302_DAT_PIN);
         Delay_us(1);
         clk_high();
         Delay_us(1);

@@ -15,7 +15,6 @@
 #include "hc05.h"
 #include "asr_pro.h"
 #include "algorithms.h"
-#include "globals.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -24,8 +23,9 @@
 
 volatile float  g_temperature  = 0.0f;
 volatile int    g_temp_valid   = 0;
-volatile int    g_page_advance = 0;
 
+/* 原子读取体温: 临界区内同时取 valid 标志和温度值,
+ * 避免读到的"有效=1 但温度是旧值"这种撕裂。Sensors 任务是唯一写者。 */
 void Get_Temperature(int *valid, float *temp)
 {
     taskENTER_CRITICAL();
@@ -89,9 +89,8 @@ static void vTaskSensors(void *pvParameters)
         IWDG_ReloadCounter();
 
         /* MAX30102 — 读 FIFO, 内部自动调用 PPG_ProcessSamples()
-         * 传 NULL: 原始样本已在驱动内部送入 PPG 算法层, 这里无需拷贝,
-         * 避免在任务栈上分配 1KB 缓冲区 (Sensors 栈仅 2KB)。 */
-        MAX30102_ReadData(NULL, NULL, NULL);
+         * 原始样本已在驱动内部送入 PPG 算法层, 这里不接收输出。 */
+        MAX30102_ReadData();
 
         /* MPU6050 — 读加速度和芯片温度 (一次 I2C 批量读取 8 字节)
          * mpu_ok 标志: 仅在温度传感器可用时才标记体温有效,
@@ -131,9 +130,8 @@ static void vTaskDisplay(void *pvParameters)
     int tick = DISPLAY_FORCE_REFRESH;   /* 复位后立即刷新首页, 无需等500ms */
 
     for (;;) {
-        if (Key_Get() || g_page_advance) {
-            page = (page + 1) % 5;
-            g_page_advance = 0;
+        if (Key_Get()) {
+            page = (page + 1) % 6;
             tick = DISPLAY_FORCE_REFRESH;
         }
 
@@ -154,6 +152,9 @@ static void vTaskDisplay(void *pvParameters)
                 break;
             case 4: /* 体温 */
                 OLED_ShowTemperature();
+                break;
+            case 5: /* 活动状态 */
+                OLED_ShowActivity(Get_ActivityState());
                 break;
             default:
                 break;

@@ -66,7 +66,6 @@ static float alpha_hp;
 
 static float window_ir[PPG_WINDOW_SIZE];
 static float filtered[PPG_WINDOW_SIZE];
-static float win_red[PPG_WINDOW_SIZE];
 
 void PPG_Init(void)
 {
@@ -75,23 +74,6 @@ void PPG_Init(void)
     float dt    = 1.0f / PPG_SAMPLE_RATE;
     alpha_lp = dt / (rc_lp + dt);
     alpha_hp = dt / (rc_hp + dt);
-}
-
-static float calc_mean(const float *v, uint16_t n)
-{
-    double s = 0.0;
-    for (uint16_t i = 0; i < n; i++) s += v[i];
-    return (float)(s / n);
-}
-
-static float calc_std(const float *v, uint16_t n, float mean)
-{
-    double s = 0.0;
-    for (uint16_t i = 0; i < n; i++) {
-        double d = v[i] - mean;
-        s += d * d;
-    }
-    return sqrtf((float)(s / n));
 }
 
 static void add_peak(uint32_t abs_idx)
@@ -172,30 +154,60 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
     if (N < PPG_MIN_SAMPLES) return;
 
     uint16_t start_idx = (ppg_write_idx + PPG_BUF_LEN - N) % PPG_BUF_LEN;
-    for (uint16_t j = 0; j < N; j++) {
-        window_ir[j] = ppg_ir[(start_idx + j) % PPG_BUF_LEN];
+    /* 环形缓冲取窗口 IR: 不回绕一次拷完, 跨末端则分两段拼接, 规避循环取模 */
+    if (start_idx + N <= PPG_BUF_LEN) {
+        memcpy(window_ir, &ppg_ir[start_idx], N * sizeof(float));
+    } else {
+        uint16_t n1 = PPG_BUF_LEN - start_idx;
+        memcpy(window_ir, &ppg_ir[start_idx], n1 * sizeof(float));
+        memcpy(&window_ir[n1], ppg_ir, (N - n1) * sizeof(float));
     }
 
+    /* --- 单趟滤波 + 三路统计合并 ---
+     * 滤波遍历同时累加 filtered / IR(原始) / RED 三路 sum 与 sum2,
+     * 结束后一次算出均值/标准差, 替代原先 6 次 (calc_mean+calc_std) 额外遍历。
+     * win_red[200] 数组随之删除, 红光从 ppg_red 环形缓冲直接取。 */
     float prev_lp = lp_state;
     float prev_hp = hp_state;
     float prev_x  = x_prev;
+    double sum_f = 0.0, sum2_f = 0.0;    /* filtered */
+    double sum_ir = 0.0, sum2_ir = 0.0;  /* 原始 IR */
+    double sum_red = 0.0, sum2_red = 0.0;
 
     for (uint16_t j = 0; j < N; j++) {
         float x   = window_ir[j];
+        float xr  = ppg_red[(start_idx + j) % PPG_BUF_LEN];
         float yhp = alpha_hp * (prev_hp + x - prev_x);
         prev_hp   = yhp;
         float ylp = prev_lp + alpha_lp * (yhp - prev_lp);
         prev_lp   = ylp;
         prev_x    = x;
         filtered[j] = ylp;
+
+        sum_f    += ylp; sum2_f   += (double)ylp * ylp;
+        sum_ir   += x;   sum2_ir  += (double)x * x;
+        sum_red  += xr;  sum2_red += (double)xr * xr;
     }
     lp_state = prev_lp;
     hp_state = prev_hp;
     x_prev   = prev_x;
 
-    float mean = calc_mean(filtered, N);
-    float stdv = calc_std(filtered, N, mean);
-    float thresh = mean + PPG_PEAK_THRESH_RATIO * stdv;
+    /* 均值/方差 (克拉默方差 = E[x²]−E[x]²), 加防数值漂移出负 */
+    float mean      = (float)(sum_f    / N);
+    float var_f     = (float)(sum2_f   / N) - mean * mean;
+    if (var_f < 0.0f) var_f = 0.0f;
+    float stdv      = sqrtf(var_f);
+    float thresh    = mean + PPG_PEAK_THRESH_RATIO * stdv;
+
+    float mean_ir  = (float)(sum_ir  / N);
+    float var_ir   = (float)(sum2_ir / N) - mean_ir * mean_ir;
+    if (var_ir < 0.0f) var_ir = 0.0f;
+    float std_ir   = sqrtf(var_ir);
+
+    float mean_red = (float)(sum_red / N);
+    float var_red  = (float)(sum2_red/ N) - mean_red * mean_red;
+    if (var_red < 0.0f) var_red = 0.0f;
+    float std_red  = sqrtf(var_red);
 
     for (uint16_t i = 1; i < N - 1; i++) {
         if (filtered[i] > thresh &&
@@ -212,14 +224,6 @@ void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len)
             }
         }
     }
-
-    for (uint16_t j = 0; j < N; j++) {
-        win_red[j] = ppg_red[(start_idx + j) % PPG_BUF_LEN];
-    }
-    float mean_ir   = calc_mean(window_ir, N);
-    float std_ir    = calc_std(window_ir, N, mean_ir);
-    float mean_red  = calc_mean(win_red, N);
-    float std_red   = calc_std(win_red, N, mean_red);
 
     /* --- 信号质量门控 (HR 和 SpO2 共用) ---
      * 同时检查两个条件, 缺一不可:
@@ -297,6 +301,13 @@ float Compensate_Temperature(float raw_temp, float ambient_temp)
     return raw_temp + offset;
 }
 
+
+
+
+
+
+
+//步态算法
 void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
 {
     /* grav/thr/shaking_energy/settle_cnt 是自适应基线, 清零反而需要重新稳定,
@@ -354,11 +365,10 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
                 if (step_confirmed) {
                     /* 已确认步态: 检查最近步是否仍在窗口内 (防止长时间停顿后误续) */
                     if ((now - step_last) > (uint32_t)STEP_VALID_WINDOW_MS) {
-                        /* 超过窗口, 视为新序列开始, 回到未确认状态 */
+                        /* 超过窗口: 降级回未确认, 当前步作为新序列首步存入暂存 */
                         step_confirmed = 0;
-                        step_pending_cnt = 0;
-                        if (step_pending_cnt < STEP_CONFIRM_MIN)
-                            step_pending_ts[step_pending_cnt++] = now;
+                        step_pending_ts[0] = now;
+                        step_pending_cnt = 1;
                     } else {
                         taskENTER_CRITICAL();
                         step_intervals[step_hist_idx] = interval;
@@ -415,6 +425,9 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
         else                                           activity_state = ACTIVITY_UNKNOWN;
     }
 }
+
+
+
 
 int  Get_StepCount(void)  { return steps; }
 

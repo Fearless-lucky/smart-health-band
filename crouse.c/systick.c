@@ -20,9 +20,9 @@ void Delay_us(uint32_t us)
 
 void Delay_ms(uint32_t ms)
 {
-    for (uint32_t i = 0; i < ms; i++) {
-        Delay_us(1000);
-    }
+    uint32_t start  = DWT->CYCCNT;
+    uint32_t target = ms * (SystemCoreClock / 1000u);
+    while ((DWT->CYCCNT - start) < target) {}
 }
 
 uint32_t Systick_GetTick(void)

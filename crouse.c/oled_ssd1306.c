@@ -45,27 +45,27 @@ static void oled_unlock(void)
 
 void OLED_Init(void)
 {
-    Delay_ms(50);
-    write_cmd(0xAE);
-    write_cmd(0x20); write_cmd(0x00);
-    write_cmd(0xB0);
-    write_cmd(0xC8);
-    write_cmd(0x00);
-    write_cmd(0x10);
-    write_cmd(0x40);
-    write_cmd(0x81); write_cmd(0x7F);
-    write_cmd(0xA1);
-    write_cmd(0xA6);
-    write_cmd(0xA8); write_cmd(0x3F);
-    write_cmd(0xA4);
-    write_cmd(0xD3); write_cmd(0x00);
-    write_cmd(0xD5); write_cmd(0x80);
-    write_cmd(0xD9); write_cmd(0xF1);
-    write_cmd(0xDA); write_cmd(0x12);
-    write_cmd(0xDB); write_cmd(0x40);
-    write_cmd(0x8D); write_cmd(0x14);
-    write_cmd(0xAF);
-    OLED_Clear();
+    Delay_ms(50);                              
+    write_cmd(0xAE);                            // 关显示 (配置完成再开)
+    write_cmd(0x20); write_cmd(0x00);           // 寻址模式: 水平
+    write_cmd(0xB0);                            // 页起始地址 = 0
+    write_cmd(0xC8);                            // COM 从下到上 (画面不颠倒)
+    write_cmd(0x00);                            // 低列起始 = 0
+    write_cmd(0x10);                            // 高列起始 = 0
+    write_cmd(0x40);                            // 显示起始行 = 0
+    write_cmd(0x81); write_cmd(0x7F);           // 对比度 = 0x7F (中等亮度)
+    write_cmd(0xA1);                            // 段重映射 (左右不镜像)
+    write_cmd(0xA6);                            // 正常显示 (非反色)
+    write_cmd(0xA8); write_cmd(0x3F);           // 复用比 = 64 (128×64)
+    write_cmd(0xA4);                            // 全局显示 (非休眠)
+    write_cmd(0xD3); write_cmd(0x00);           // 显示偏移 = 0
+    write_cmd(0xD5); write_cmd(0x80);           // 时钟分频/振荡器频率
+    write_cmd(0xD9); write_cmd(0xF1);           // 预充电周期
+    write_cmd(0xDA); write_cmd(0x12);           // COM 引脚配置 (64行)
+    write_cmd(0xDB); write_cmd(0x40);           // VCOMH 电压
+    write_cmd(0x8D); write_cmd(0x14);           // 开电荷泵 (3.3V必须开)
+    write_cmd(0xAF);                            // 开显示
+    OLED_Clear();                               // 清屏
 
     /* 创建 framebuf 互斥锁 (调度器尚未启动, 创建安全)。
      * 堆耗尽会返回 NULL → 所有 Show* 静默不显示, 严重到必须用断言捕获。 */
@@ -77,10 +77,31 @@ void OLED_Init(void)
 
 void OLED_Clear(void)
 {
-    memset(framebuf, 0x00, sizeof(framebuf));
-    memset(dirty, 1, sizeof(dirty));
+    memset(framebuf, 0x00, sizeof(framebuf));//像素置0
+    memset(dirty, 1, sizeof(dirty));//标记全脏
 }
 
+void OLED_Flush(void)
+{
+    for (uint8_t page = 0; page < 8; page++) {
+        if (!dirty[page]) continue;
+        write_cmd(0xB0 + page);
+        write_cmd(0x00);
+        write_cmd(0x10);
+        I2C2_WriteReg(SSD1306_ADDR, DAT, framebuf[page], 128);
+        dirty[page] = 0;
+    }
+}
+
+
+
+
+
+
+
+
+
+//具体显示函数
 void OLED_DrawChar(uint8_t x, uint8_t page, char c)
 {
     /* 越界保护: 字体 5px+1px 间距, x 需 <= 122; page 范围 0~7 */
@@ -101,18 +122,6 @@ void OLED_DrawString(uint8_t x, uint8_t page, const char *s)
         OLED_DrawChar(x, page, *s);
         x += 6;
         s++;
-    }
-}
-
-void OLED_Flush(void)
-{
-    for (uint8_t page = 0; page < 8; page++) {
-        if (!dirty[page]) continue;
-        write_cmd(0xB0 + page);
-        write_cmd(0x00);
-        write_cmd(0x10);
-        I2C2_WriteReg(SSD1306_ADDR, DAT, framebuf[page], 128);
-        dirty[page] = 0;
     }
 }
 
@@ -270,12 +279,19 @@ static void oled_drawtemp_big_center(uint8_t page, const char *numstr)
  *   y=24:    ──────────────   分隔线
  *   y=26~37: 1.查看心率  2.查看步数   (序号+中文同y对齐)
  *   y=38~49: 3.归零步数  4.查看血氧
- *   y=50~61: 5.查看体温  6.查看时间
+ *   y=50~61: 5.查看体温  6.查看状态
  *   y=63:    ──────────────   底部分隔线
  *
  * 序号用 oled_drawstr_at (任意y), 中文用 oled_draw_cn12_str (任意y),
  * 两者起始 y 完全一致, 解决对齐问题。
  */
+
+
+
+
+
+
+ //具体页面显示
 void OLED_ShowMainPage(void)
 {
     if (oled_lock() != 0) return;
@@ -315,9 +331,9 @@ void OLED_ShowMainPage(void)
      static const uint8_t c4[] = {CN_CHA,CN_KAN,CN_XUE,CN_YANG};
      oled_drawstr_at(2,  38, "3.");  oled_draw_cn12_str(14, 38, c3, 4);
      oled_drawstr_at(66, 38, "4.");  oled_draw_cn12_str(78, 38, c4, 4);}
-    /* 行3 y=50: 查看体温 | 查看时间 */
+    /* 行3 y=50: 查看体温 | 查看状态 */
     {static const uint8_t c5[] = {CN_CHA,CN_KAN,CN_TI,CN_WEN};
-     static const uint8_t c6[] = {CN_CHA,CN_KAN,CN_SHI,CN_JIAN};
+     static const uint8_t c6[] = {CN_CHA,CN_KAN,CN_ZHUANG,CN_TAI};
      oled_drawstr_at(2,  50, "5.");  oled_draw_cn12_str(14, 50, c5, 4);
      oled_drawstr_at(66, 50, "6.");  oled_draw_cn12_str(78, 50, c6, 4);}
 

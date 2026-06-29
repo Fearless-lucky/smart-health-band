@@ -17,7 +17,7 @@
 static SemaphoreHandle_t g_i2c_mutex  = NULL;  // I2C1锁: MAX30102+MPU6050
 static SemaphoreHandle_t g_i2c2_mutex = NULL;  // I2C2锁: OLED
 
-static void i2c_bus_reset(I2C_TypeDef *i2c)//错误重置
+static void i2c_bus_reset(I2C_TypeDef *i2c)//I2C总线重置
 {
     I2C_InitTypeDef cfg;
     I2C_DeInit(i2c);
@@ -32,7 +32,7 @@ static void i2c_bus_reset(I2C_TypeDef *i2c)//错误重置
     I2C_Cmd(i2c, ENABLE);
 }
 
-static int i2c_wait(I2C_TypeDef *i2c, uint32_t flag, uint32_t timeout_ms)
+static int i2c_wait(I2C_TypeDef *i2c, uint32_t flag, uint32_t timeout_ms)//等待标志位置位，超时返回-1
 {
     uint32_t start = Systick_GetTick();
     while ((i2c->SR1 & flag) == 0) {
@@ -46,6 +46,18 @@ static int i2c_wait(I2C_TypeDef *i2c, uint32_t flag, uint32_t timeout_ms)
     return 0;
 }
 
+/* START → 发7位地址 → 等 ADDR → 清 SR2. 失败返回 -1. */
+static int i2c_start_addr(I2C_TypeDef *i2c, uint16_t dev_addr, int is_read)
+{
+    I2C_GenerateSTART(i2c, ENABLE);
+    if (i2c_wait(i2c, I2C_SR1_SB, 50) != 0) return -1;
+    I2C_Send7bitAddress(i2c, dev_addr, is_read ? I2C_Direction_Receiver
+                                               : I2C_Direction_Transmitter);
+    if (i2c_wait(i2c, I2C_SR1_ADDR, 50) != 0) return -1;
+    (void)i2c->SR2;
+    return 0;
+}
+
 static int i2c_xfer(I2C_TypeDef *i2c, SemaphoreHandle_t mtx,
                     uint16_t dev_addr, uint8_t reg,
                     uint8_t *data, uint16_t len, int is_read)
@@ -55,24 +67,13 @@ static int i2c_xfer(I2C_TypeDef *i2c, SemaphoreHandle_t mtx,
     if (xSemaphoreTake(mtx, pdMS_TO_TICKS(100)) != pdTRUE) return -1;//拿锁，最多等100ms（freertos独特机制）
 
     /* ---- 第1阶段: 发送寄存器地址 ---- */
-    I2C_GenerateSTART(i2c, ENABLE);
-    if (i2c_wait(i2c, I2C_SR1_SB, 50) != 0) goto out;
-
-    I2C_Send7bitAddress(i2c, dev_addr, I2C_Direction_Transmitter);
-    if (i2c_wait(i2c, I2C_SR1_ADDR, 50) != 0) goto out;
-    (void)i2c->SR2;   /* 读 SR2 清除 ADDR 标志 */
-
+    if (i2c_start_addr(i2c, dev_addr, 0) != 0) goto out;
     I2C_SendData(i2c, reg);
     if (i2c_wait(i2c, I2C_SR1_TXE, 50) != 0) goto out;
 
     if (is_read) {
         /* ---- 读事务: 重复 START → 接收数据 ---- */
-        I2C_GenerateSTART(i2c, ENABLE);
-        if (i2c_wait(i2c, I2C_SR1_SB, 50) != 0) goto out;
-
-        I2C_Send7bitAddress(i2c, dev_addr, I2C_Direction_Receiver);
-        if (i2c_wait(i2c, I2C_SR1_ADDR, 50) != 0) goto out;
-        (void)i2c->SR2;
+        if (i2c_start_addr(i2c, dev_addr, 1) != 0) goto out;//读也要再发一次起始信号
 
         for (uint16_t i = 0; i < len; i++) {
             if (i == len - 1) {
@@ -83,7 +84,8 @@ static int i2c_xfer(I2C_TypeDef *i2c, SemaphoreHandle_t mtx,
             data[i] = I2C_ReceiveData(i2c);
         }
         I2C_AcknowledgeConfig(i2c, ENABLE);
-    } else {
+    }
+    else {
         /* ---- 写事务: 连续发送数据 ---- */
         for (uint16_t i = 0; i < len; i++) {
             I2C_SendData(i2c, data[i]);
@@ -121,7 +123,7 @@ void I2C1_Init(void)
     i2c_bus_reset(I2C1);
 
     if (g_i2c_mutex == NULL)
-        g_i2c_mutex = xSemaphoreCreateMutex();
+        g_i2c_mutex = xSemaphoreCreateMutex();//取锁
 }
 
 int I2C_WriteReg(uint16_t dev_addr, uint8_t reg, uint8_t *data, uint16_t len)
@@ -156,3 +158,4 @@ int I2C2_WriteReg(uint16_t dev_addr, uint8_t reg, uint8_t *data, uint16_t len)
 {
     return i2c_xfer(I2C2, g_i2c2_mutex, dev_addr, reg, data, len, 0);
 }
+
