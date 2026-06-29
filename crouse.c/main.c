@@ -233,25 +233,16 @@ int main(void)
     MAX30102_Init();    /* I2C1, 0x57 — 心率血氧 PPG */
     MPU6050_Init();     /* I2C1, 0x68 — 六轴加速度 + 芯片温度 */
     DS18B20_Init();     /* 1-Wire, PA1 — 皮肤温度 */
-    DS1302_Init();      /* 三线, PB1/PB14/PB13 — RTC 时钟 */
+    {
+        int r = DS1302_Init();
+        const char *msg = (r == 0) ? "DS1302: OK\r\n" : "DS1302: NO COMM (check wires!)\r\n";
+        UART1_Send((const uint8_t *)msg, (uint16_t)strlen(msg));
+    }
 
     OLED_Init();        /* I2C2, 0x3C — 128x64 显示屏 */
     Keys_Init();        /* WK_UP(PA0)=翻页 */
     HC05_Init(9600);    /* UART1, 9600bps — 蓝牙 */
     ASR_Init(9600);     /* UART2, 9600bps — 语音识别 */
-
-    {
-        int r = DS1302_SelfTest();
-        const char *msg;
-        switch (r) {
-        case  0: msg = "DS1302: OK\r\n";                      break;
-        case -1: msg = "DS1302: NO COMM (check wires!)\r\n";  break;
-        case -2: msg = "DS1302: RAM R/W FAIL\r\n";            break;
-        case -3: msg = "DS1302: WP REG FAIL\r\n";             break;
-        default: msg = "DS1302: UNKNOWN\r\n";                 break;
-        }
-        UART1_Send((const uint8_t *)msg, (uint16_t)strlen(msg));
-    }
 
     {
         rtc_time_t tm;//时间结构体
