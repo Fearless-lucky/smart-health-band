@@ -15,6 +15,7 @@
 #include "hc05.h"
 #include "asr_pro.h"
 #include "algorithms.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -142,19 +143,19 @@ static void vTaskDisplay(void *pvParameters)
                 OLED_ShowMainPage();
                 break;
             case 1: /* 心率 */
-                OLED_ShowHeartRate(Get_HeartRate());
+                OLED_ShowHeartRate(hr);
                 break;
             case 2: /* 血氧 */
-                OLED_ShowSpO2(Get_SpO2());
+                OLED_ShowSpO2(spo2);
                 break;
             case 3: /* 步数 */
-                OLED_ShowSteps(Get_StepCount());
+                OLED_ShowSteps(steps);
                 break;
             case 4: /* 体温 */
                 OLED_ShowTemperature();
                 break;
             case 5: /* 活动状态 */
-                OLED_ShowActivity(Get_ActivityState());
+                OLED_ShowActivity(activity_state);
                 break;
             default:
                 break;
@@ -228,8 +229,6 @@ int main(void)
     I2C1_Init();        /* I2C1: PB8=SCL, PB9=SDA — MAX30102 + MPU6050 (重映射) */
     I2C2_Init();        /* I2C2: PB10=SCL, PB11=SDA — OLED SSD1306 */
     UART1_Init(115200); /* PA9=TX, PA10=RX — 调试 + HC-05 */
-
-    PPG_Init();
 
     MAX30102_Init();    /* I2C1, 0x57 — 心率血氧 PPG */
     MPU6050_Init();     /* I2C1, 0x68 — 六轴加速度 + 芯片温度 */

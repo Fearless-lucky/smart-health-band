@@ -55,10 +55,10 @@ Four tasks run under the FreeRTOS scheduler (preemptive, 1ms tick):
 
 | Task      | Stack | Priority | Period | Responsibility |
 |-----------|-------|----------|--------|----------------|
-| Sensors   | 512   | 3 (highest) | 200ms | Read MAX30102 FIFO, MPU6050 accel, DS18B20 temp (every 4th cycle ≈ 800ms) |
-| Display   | 512   | 2       | 50ms  | Debounce key input, switch pages (5 pages), refresh OLED when active |
+| Sensors   | 512   | 3 (highest) | 200ms | Read MAX30102 FIFO, MPU6050 accel, DS18B20 temp (every 5th cycle ≈ 1000ms) |
+| Display   | 512   | 2       | 50ms  | Debounce key input, switch pages (6 pages), refresh OLED when active |
 | Voice     | 384   | 2       | 100ms | Poll UART2 for ASR PRO single-byte commands |
-| BT        | 384   | 2       | 20ms  | Poll UART1 for HC-05 AT/calibration commands, send JSON report every 2s |
+| BT        | 384   | 2       | 20ms  | Broadcast JSON health data every 2s over UART1 (HC-05) |
 
 Priority 3 for Sensors ensures PPG FIFO reads are not delayed (MAX30102 has only 32-sample FIFO at 100Hz → ~320ms before overflow).
 
@@ -96,7 +96,7 @@ Each layer only talks to the one below it. Changing the OLED screen only touches
 ### Signal Processing Pipeline (algorithms.c)
 
 1. **PPG Processing**: 100Hz IR/Red samples → 0.5Hz HP filter + 5Hz LP filter (1st-order IIR) → dynamic threshold peak detection → heart rate from inter-peak intervals (EMA: α=0.15).
-2. **SpO2**: `SpO2 = A - B × R`, where `R = (AC_red/DC_red) / (AC_ir/DC_ir)`. Calibratable via Bluetooth `CAL A B` command. Clamped to [50, 100].
+2. **SpO2**: `SpO2 = A - B × R`, where `R = (AC_red/DC_red) / (AC_ir/DC_ir)`. Calibration coefficients A, B are compile-time constants in `algorithms.h` (`SPO2_CAL_A`, `SPO2_CAL_B`). Clamped to [50, 100].
 3. **Step Counting**: Accelerometer magnitude minus gravity (EMA α=0.98) → adaptive threshold → min 400ms inter-step interval → activity classification (WALKING/RUNNING/SHAKING/UNKNOWN) based on cadence and idle time.
 4. **Temperature Compensation**: `body_temp = skin_temp + offset`, where offset = 2.5°C − 0.05 × (ambient − 25°C), clamped to [1.0, 3.5]. Ambient reference comes from MPU6050's on-die temperature sensor.
 
@@ -112,9 +112,7 @@ Defined in `crouse.h/globals.h` — these are `volatile` variables written by on
 
 - UART1 (PA9=TX, PA10=RX), default 9600 baud with auto-baud fallback chain (38400→115200→57600→19200)
 - **Output**: JSON report `{"hr":72,"spo2":98,"steps":1234,"temp":36.50}` every 2 seconds
-- **Input commands** (newline-terminated):
-  - `CAL A B` — set SpO2 calibration coefficients
-  - `TIME HH:MM:SS DD/MM/YY` — set RTC
+- **Input commands**: Bluetooth command processing (CAL, TIME) has been removed — HC-05 is broadcast-only. RTC time is set via voice ASR command or preset at build time.
 
 ### ASR PRO Voice Commands
 
@@ -125,13 +123,13 @@ UART2 (PA2=TX, PA3=RX) at 9600 baud. Single-byte command codes: 0x01–0x09 map 
 - **Timekeeping**: `Systick_GetTick()` in [systick.c](crouse.c/systick.c) returns FreeRTOS tick count when scheduler is running, falling back to `DWT->CYCCNT / (SystemCoreClock/1000)` during boot init. The DWT fallback wraps every ~59.6s (at 72MHz), acceptable since init takes <1s. Delay_us/Delay_ms use DWT cycle counting directly (busy-wait), independent of FreeRTOS ticks — safe to call before scheduler starts.
 - **Stack overflow detection** (`configCHECK_FOR_STACK_OVERFLOW=1`): The hook outputs "STACK OVERFLOW: <taskname>" via UART1 at 115200 baud, then spins forever.
 - **I2C error recovery**: On any I2C failure, the bus is reset via full deinit+reinit before returning error. All I2C functions time out after 50ms per operation. I2C lock timeout: 100ms via mutex.
-- **DS18B20 two-step async pattern**: `StartConversion()` (0xCC 0x44) → wait 4×200ms=800ms (≥750ms 12-bit conversion time) → `ReadData()` (0xCC 0xBE + CRC8). The `ds18b20_tick` counter in `vTaskSensors` sequences this across 4 sensor cycles. On the read cycle, `continue` skips `vTaskDelay` so the next conversion starts immediately — the MAX30102 read in that bonus cycle finds 0 new samples (harmless).
-- **DS18B20 CRC**: `DS18B20_ReadData` returns `-1` on CRC failure, `-2` on bus timeout. `main.c` checks `== 0` for success. The legacy `TEMP_CRC_INVALID` (-999.0f) macro has been removed — it was dead code.
-- **DS1302 self-test**: On boot, `main()` runs `DS1302_SelfTest()` and outputs the result over UART1 (115200) for wiring verification. Also reads and outputs current RTC time.
+- **DS18B20 two-step async pattern**: `StartConversion()` (0xCC 0x44) → wait 5×200ms=1000ms (≥750ms 12-bit conversion time) → `ReadData()` reads 9-byte scratchpad + validates CRC-8 (poly 0x31). The `ds18b20_tick` counter in `vTaskSensors` sequences this: tick=0 starts conversion, ticks 1–4 wait, tick≥5 reads. After reading, tick resets to 0 and `continue` skips `vTaskDelay` so the next conversion starts immediately — the MAX30102 read in that bonus cycle finds 0 new samples (harmless).
+- **DS18B20 CRC**: `DS18B20_ReadData` reads all 9 scratchpad bytes and validates CRC-8. Returns `-1` on CRC failure, `-2` on bus timeout or NULL argument. `main.c` checks `== 0` for success.
+- **DS1302 init**: On boot, `main()` calls `DS1302_Init()` which includes a built-in self-check (clears CH bit to start oscillator). The current time is read and output over UART1 (115200) for verification.
 - **UART1 bootstrap sequence**: `main()` initializes UART1 at 115200 for debug output, then `HC05_Init(9600)` reinitializes it at HC-05's baud rate.
-- **OERR handling**: `HC05_Process()` and `ASR_ProcessUART()` explicitly clear UART Overrun Error flag on each poll cycle to prevent receive lockup.
-- **MAX30102 FIFO read pattern**: Reads wr/rd pointers separately (two I2C transactions) → computes available samples via `(wr-rd) & 0x1F` → burst-reads register 0x07 for N×6 bytes → decodes 18-bit IR/Red values → feeds to PPG_ProcessSamples(). The two-pointer reads are not atomic, but this is safe: we read what was available at wr snapshot; new data arriving between reads stays for next cycle.
-- **OLED dirty-page optimization**: Only pages with modified content are flushed to I2C2 (`dirty[8]` bitmask). Each flush writes page address + 128 bytes of framebuffer data.
+- **OERR handling**: `ASR_ProcessUART()` clears UART Overrun Error flag on each poll cycle to prevent receive lockup. `HC05_Process()` is broadcast-only and does not read RX, so OERR clearing there is unnecessary.
+- **MAX30102 FIFO read pattern**: Reads wr/rd pointers separately (two I2C transactions) → computes available samples via `(wr-rd) & 0x1F` → if OVR bit set between wr and rd, the frame is discarded (data integrity loss) → otherwise burst-reads register 0x07 for N×6 bytes → decodes 18-bit IR/Red values → feeds to PPG_ProcessSamples(). The two-pointer reads are not atomic, but this is safe: we read what was available at wr snapshot; new data arriving between reads stays for next cycle.
+- **OLED dirty-page optimization**: Only pages with modified content are flushed to I2C2 (`dirty[8]` bitmask). Each flush writes page address + 128 bytes of framebuffer data. `dirty[page]` is only cleared on successful I2C2 write — if the transfer fails, the page stays dirty and will be retransmitted next cycle.
 - **FreeRTOS mutex init ordering**: Mutexes are created in `I2C1_Init()`/`I2C2_Init()`, which are called in `main()` BEFORE `vTaskStartScheduler()`. This is safe — FreeRTOS mutex/semaphore APIs work before scheduler start.
 
 ## Known Concurrency Gotchas
@@ -156,13 +154,13 @@ All cross-task reads of body temperature go through `Get_Temperature(int *valid,
 
 Set to `0` in `FreeRTOSConfig.h`. The project uses no software timers (HC05 telemetry timing is done via `last_report_tick` polling). Disabling frees the Timer service task (256-word stack + TCB + command queue ≈ 1.2KB heap).
 
-### `Get_HeartRate()` / `Get_SpO2()` / `Get_StepCount()` reads without lock
+### `hr` / `spo2` / `steps` / `activity_state` global access (no getter functions)
 
-These return `static volatile int` values from [algorithms.c](crouse.c/algorithms.c). On Cortex-M3, aligned 32-bit `int` reads ARE atomic, so no torn reads. However, the reader might see a momentarily stale value between the Sensors task's write and the next scheduler tick. This is acceptable for sensor display/reporting.
+These are `volatile` globals defined in [algorithms.c](crouse.c/algorithms.c), declared `extern` in [algorithms.h](crouse.h/algorithms.h). On Cortex-M3, aligned 32-bit `int` reads ARE atomic, so no torn reads. Readers in [main.c](crouse.c/main.c), [hc05.c](crouse.c/hc05.c), and [asr_pro.c](crouse.c/asr_pro.c) access them directly — the former `Get_HeartRate()`/`Get_SpO2()`/`Get_StepCount()`/`Get_ActivityState()` getter functions have been removed. However, the reader might see a momentarily stale value between the Sensors task's write and the next scheduler tick. This is acceptable for sensor display/reporting.
 
 ### Algorithm static arrays in BSS
 
-`filtered[200]`, `window_ir[200]`, `win_red[200]`, `ppg_ir[256]`, `ppg_red[256]` are all file-scope `static` in [algorithms.c](crouse.c/algorithms.c), consuming ~4.4KB of BSS. This is intentional to avoid stack allocation in the Sensors task (512 words = 2KB stack).
+`filtered[200]`, `window_ir[200]`, `ppg_ir[256]`, `ppg_red[256]` are all file-scope `static` in [algorithms.c](crouse.c/algorithms.c), consuming ~3.6KB of BSS (the legacy `win_red[200]` has been removed). This is intentional to avoid stack allocation in the Sensors task (512 words = 2KB stack).
 
 ## Modifying the Code
 

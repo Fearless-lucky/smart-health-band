@@ -88,8 +88,8 @@ void OLED_Flush(void)
         write_cmd(0xB0 + page);
         write_cmd(0x00);
         write_cmd(0x10);
-        I2C2_WriteReg(SSD1306_ADDR, DAT, framebuf[page], 128);
-        dirty[page] = 0;
+        if (I2C2_WriteReg(SSD1306_ADDR, DAT, framebuf[page], 128) == 0)
+            dirty[page] = 0;   /* I2C 成功才清脏, 失败保留下次重传 */
     }
 }
 
@@ -467,7 +467,6 @@ void OLED_ShowActivity(activity_t act)
     switch (act) {
     case ACTIVITY_WALKING: label = "Walking"; hint = "Nice pace!";   break;
     case ACTIVITY_RUNNING: label = "Running"; hint = "Great job!";   break;
-    case ACTIVITY_SHAKING: label = "Shaking"; hint = "Steady...";    break;
     default:              label = "Resting"; hint = "Stay active";  break;
     }
     OLED_Clear();

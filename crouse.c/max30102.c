@@ -87,6 +87,7 @@ int MAX30102_ReadData(void)//从FIFO中读取数据
 
     int samples = (int)((wr - rd) & 0x1F);
     if (samples == 0) return -1;
+    if (((rd ^ wr) & 0x20) && samples > 0) return -1;   /* OVR 置位: 数据已丢失,弃帧 */
 
     /* 一次性读取全部可用样本 (每样本 6 字节: R[18:0] + IR[18:0]) */
     uint8_t raw[192];//最多6×32=192字节

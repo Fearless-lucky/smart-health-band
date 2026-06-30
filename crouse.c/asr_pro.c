@@ -22,23 +22,23 @@ void ASR_ProcessUART(void)
 
         switch (c) {
         case ASR_CMD_HR:
-            OLED_ShowHeartRate(Get_HeartRate());
+            OLED_ShowHeartRate(hr);
             break;
         case ASR_CMD_STEPS:
-            OLED_ShowSteps(Get_StepCount());
+            OLED_ShowSteps(steps);
             break;
         case ASR_CMD_STEPRST:
             Reset_StepCount();
-            OLED_ShowSteps(Get_StepCount());
+            OLED_ShowSteps(steps);
             break;
         case ASR_CMD_SPO2:
-            OLED_ShowSpO2(Get_SpO2());
+            OLED_ShowSpO2(spo2);
             break;
         case ASR_CMD_TEMP:
             OLED_ShowTemperature();
             break;
         case ASR_CMD_ACTIVITY:
-            OLED_ShowActivity(Get_ActivityState());
+            OLED_ShowActivity(activity_state);
             break;
         default:
             break;

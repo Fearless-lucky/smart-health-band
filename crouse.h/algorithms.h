@@ -3,25 +3,23 @@
 
 #include <stdint.h>
 
-void PPG_Init(void);
 void PPG_ProcessSamples(const int32_t *ir, const int32_t *red, uint16_t len);
 
-int  Get_HeartRate(void);
-int  Get_SpO2(void);
+extern volatile int hr;
+extern volatile int spo2;
+extern volatile int steps;
 
 typedef enum {
-    ACTIVITY_UNKNOWN = 0,
+    ACTIVITY_RESTING = 0,
     ACTIVITY_WALKING,
-    ACTIVITY_RUNNING,
-    ACTIVITY_SHAKING
+    ACTIVITY_RUNNING
 } activity_t;
 
-activity_t Get_ActivityState(void);
+extern volatile activity_t activity_state;
 
 float Compensate_Temperature(float raw_temp, float ambient_temp);
 
 void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az);
-int  Get_StepCount(void);
 void Reset_StepCount(void);
 
 /* 算法参数 — 由各 *_config.h 迁移而来 (算法层不再依赖 *_config.h) */
@@ -58,16 +56,15 @@ void Reset_StepCount(void);
 #define STEP_INIT_THRESH           500.0f /* 初始阈值 (归一化后 LSB) */
 #define STEP_SETTLE_COUNT          10     /* 前N次静默稳定期 (~2秒) */
 #define STEP_MIN_INTERVAL_MS       300    /* 最小步间隔 ms (允许~200spm, 兼顾跑步) */
-#define STEP_MIN_THRESH            200.0f /* 自适应阈值下限 (抗静止噪声误计) */
+#define STEP_MIN_THRESH            150.0f /* 自适应阈值下限 (抗静止噪声误计) */
 #define STEP_HISTORY_LEN           8      /* 步间隔历史缓冲区大小 */
 #define STEP_VALID_WINDOW_MS       3000   /* 步态连续性窗口 ms (需窗口内≥2步才确认步态) */
 #define STEP_CONFIRM_MIN           2      /* 窗口内最少步数才算连续步态 (过滤单次碰触) */
 
 /* ---- 运动状态分类 ---- */
-#define ACTIVITY_SHAKE_ENERGY      400    /* 晃动能量阈值 */
-#define ACTIVITY_IDLE_MS           2000   /* 判定无动作的时间窗口 ms */
-#define ACTIVITY_WALK_SPM_MIN      40.0f  /* 步行步频下限 steps/min */
-#define ACTIVITY_RUN_SPM_MIN       120.0f /* 跑步步频下限 steps/min */
+#define ACTIVITY_IDLE_MS           3000   /* 判定无动作的时间窗口 ms */
+#define ACTIVITY_WALK_SPM_MIN      60.0f  /* 步行步频下限 steps/min */
+#define ACTIVITY_RUN_SPM_MIN       100.0f /* 跑步步频下限 steps/min */
 
 /* (原 ds18b20_config.h) — 温度补偿参数, algorithms.c 使用 */
 #define TEMP_BASE_OFFSET           3.0f   /* 基础温差 skin→core °C (实测3.5偏高0.5, 回调至3.0) */

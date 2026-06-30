@@ -11,7 +11,7 @@
 
 static char txbuf[128];
 static uint32_t last_report_tick = 0;
-#define HC05_REPORT_INTERVAL_MS  10000
+#define HC05_REPORT_INTERVAL_MS  2000
 
 static int hc05_try_baud(uint32_t baud)//检测并适应波特率
 {
@@ -54,20 +54,14 @@ void HC05_Process(void)
     uint32_t now = Systick_GetTick();
     if ((now - last_report_tick) >= HC05_REPORT_INTERVAL_MS) {
         last_report_tick = now;
-        int hr    = Get_HeartRate();
-        int spo2  = Get_SpO2();
-        int steps = Get_StepCount();
         int   valid;
         float temp;
         Get_Temperature(&valid, &temp);
         int n = snprintf(txbuf, sizeof(txbuf),
-            "\r\n==== 健康数据 ====\r\n"
-            "心率: %d bpm\r\n"
-            "血氧: %d %%\r\n"
-            "步数: %d 步\r\n"
-            "体温: %.2f C\r\n"
-            "==================\r\n",
+            "{\"hr\":%d,\"spo2\":%d,\"steps\":%d,\"temp\":%.2f}",
             hr, spo2, steps, (double)(valid ? temp : 0.0f));
-        if (n > 0) UART1_Send((uint8_t *)txbuf, (uint16_t)n);
+        if (n > 0 && n < (int)sizeof(txbuf)) {
+            UART1_Send((uint8_t *)txbuf, (uint16_t)n);
+        }
     }
 }

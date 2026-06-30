@@ -52,6 +52,22 @@ static uint8_t ow_read_byte(void)
     return v;
 }
 
+/* DS18B20 CRC-8 (poly 0x31, 反射 LSB 优先) — 校验 scratchpad 前 8 字节 */
+static uint8_t crc8(const uint8_t *buf, uint8_t len)
+{
+    uint8_t crc = 0;
+    for (uint8_t i = 0; i < len; i++) {
+        uint8_t b = buf[i];
+        for (uint8_t j = 0; j < 8; j++) {
+            uint8_t mix = (crc ^ b) & 0x01;
+            crc >>= 1;
+            if (mix) crc ^= 0x8C;
+            b >>= 1;
+        }
+    }
+    return crc;
+}
+
 int DS18B20_Init(void)
 {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -83,10 +99,11 @@ int DS18B20_ReadData(float *temperature)
     if (ok == 0) {
         ow_write_byte(0xCC);               /* Skip ROM */
         ow_write_byte(0xBE);               /* Read Scratchpad */
-        uint8_t lo = ow_read_byte();
-        uint8_t hi = ow_read_byte();
+        uint8_t scratch[9];
+        for (int i = 0; i < 9; i++) scratch[i] = ow_read_byte();
         taskEXIT_CRITICAL();
-        int16_t raw = ((int16_t)hi << 8) | lo;
+        if (crc8(scratch, 8) != scratch[8]) return -1;   /* CRC 校验失败 */
+        int16_t raw = ((int16_t)scratch[1] << 8) | scratch[0];
         *temperature = raw / 16.0f;
         return 0;
     }
