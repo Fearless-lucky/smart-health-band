@@ -136,6 +136,15 @@ static void vTaskDisplay(void *pvParameters)
             tick = DISPLAY_FORCE_REFRESH;
         }
 
+        /* 消费语音指令: Voice 任务把目标页号入队, 这里读出后跳页并强制刷新 */
+        {
+            int req = ASR_GetPageRequest();
+            if (req >= 0 && req < 6) {
+                page = req;
+                tick = DISPLAY_FORCE_REFRESH;
+            }
+        }
+
         if (tick >= DISPLAY_REFRESH_CYCLES) {
             tick = 0;
             switch (page) {
@@ -166,13 +175,13 @@ static void vTaskDisplay(void *pvParameters)
     }
 }
 
-/* 语音识别任务 — 100ms, prio 2 */
+/* 语音识别任务 — 10ms, prio 2 */
 static void vTaskVoice(void *pvParameters)
 {
     (void)pvParameters;
     for (;;) {
         ASR_ProcessUART();
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -242,7 +251,7 @@ int main(void)
     OLED_Init();        /* I2C2, 0x3C — 128x64 显示屏 */
     Keys_Init();        /* WK_UP(PA0)=翻页 */
     HC05_Init(9600);    /* UART1, 9600bps — 蓝牙 */
-    ASR_Init(9600);     /* UART2, 9600bps — 语音识别 */
+    ASR_Init(115200);   /* UART2, 115200bps — 语音识别 */
 
     {
         rtc_time_t tm;//时间结构体

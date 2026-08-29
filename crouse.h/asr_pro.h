@@ -14,4 +14,8 @@
 void ASR_Init(uint32_t baud);
 void ASR_ProcessUART(void);
 
+/* 取一条语音翻页请求 (非阻塞)。无请求返回 -1; 有请求返回 0~5 的目标页号。
+ * 调用者: vTaskDisplay 每周期调用一次, 取到后由 Display 刷对应页。 */
+int  ASR_GetPageRequest(void);
+
 #endif

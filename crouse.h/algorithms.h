@@ -24,7 +24,7 @@ void Reset_StepCount(void);
 
 /* 算法参数 — 由各 *_config.h 迁移而来 (算法层不再依赖 *_config.h) */
 
-/* (原 max30102_config.h) — PPG 算法参数, algorithms.c 使用 */
+
 #define PPG_SAMPLE_RATE            100.0f /* Hz */
 #define PPG_BUF_LEN                256    /* 环形缓冲区大小 */
 #define PPG_WINDOW_SIZE            200    /* 分析窗口样本数 */
@@ -50,7 +50,6 @@ void Reset_StepCount(void);
 #define SPO2_CLAMP_MIN             50
 #define SPO2_CLAMP_MAX             100
 
-/* (原 mpu6050_config.h) — 计步算法参数, algorithms.c 使用 */
 #define STEP_GRAVITY_EMA           0.98f  /* 重力估计指数移动平均系数 */
 #define STEP_THRESH_EMA            0.995f /* 阈值自适应指数移动平均系数 */
 #define STEP_INIT_THRESH           500.0f /* 初始阈值 (归一化后 LSB) */
@@ -66,8 +65,7 @@ void Reset_StepCount(void);
 #define ACTIVITY_WALK_SPM_MIN      60.0f  /* 步行步频下限 steps/min */
 #define ACTIVITY_RUN_SPM_MIN       100.0f /* 跑步步频下限 steps/min */
 
-/* (原 ds18b20_config.h) — 温度补偿参数, algorithms.c 使用 */
-#define TEMP_BASE_OFFSET           3.0f   /* 基础温差 skin→core °C (实测3.5偏高0.5, 回调至3.0) */
+#define TEMP_BASE_OFFSET           1.5f   /* 基础温差 skin→core °C (实测偏低0.8+0.2, 由3.0回调至2.0) */
 #define TEMP_AMBIENT_REF           25.0f  /* 参考环境温度 °C */
 #define TEMP_AMBIENT_COEFF         0.05f  /* 环境温度修正系数 */
 #define TEMP_OFFSET_MIN            1.5f   /* 最小补偿量 °C */
