@@ -1,0 +1,194 @@
+[2026-06-30 12:51:14]	[info] incremental build: 45 source files changed
+These source files will be recompiled
+---
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\Source\ARM\startup_stm32f10x_hd.s': compiler options has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\Source\system_stm32f10x.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\misc.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_adc.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_bkp.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_can.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_cec.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_crc.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_dac.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_dbgmcu.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_dma.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_exti.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_flash.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_fsmc.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_gpio.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_i2c.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_iwdg.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_pwr.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_rcc.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_rtc.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_sdio.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_spi.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_tim.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_usart.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_wwdg.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\algorithms.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\asr_pro.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\ds1302.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\ds18b20.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\hc05.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\i2c.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\main.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\max30102.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\mpu6050.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\oled_ssd1306.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\systick.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\uart.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\portable\RVDS\ARM_CM3\port.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\src\event_groups.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\src\heap_4.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\src\list.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\src\queue.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\src\stream_buffer.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\src\tasks.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\freertos\src\timers.c': object (.o) file not exist
+
+[2026-06-30 12:51:16]	[done]
+	build successfully !
+
+[2026-06-30 13:05:44]	compilation failed at : "c:\Users\admin\OneDrive\Desktop\最小开发板\Device\StdPeriph_Driver\src\stm32f10x_iwdg.c", exit code: 1
+command: 
+  "F:\Keil_v5\Core\ARM\ARMCLANG\bin\armclang.exe" --target=arm-arm-none-eabi -c -xc -std=c99 -I. -IDevice/StdPeriph_Driver/inc -ICore/Include -ICore/Source -IDevice/StdPeriph_Driver/src -IDevice/StdPeriph_Driver/templates -Icrouse.c -Icrouse.h -Ifreertos/include -Ifreertos/portable -Ifreertos/src -Ifreertos/portable/RVDS/ARM_CM3 -I.cmsis/include -I"RTE/_Target 1" -D"USE_STDPERIPH_DRIVER" -D"STM32F10X_HD" -mcpu=cortex-m3 -mlittle-endian -D__MICROLIB -O1 -ffunction-sections -funsigned-char -fshort-enums -fshort-wchar -fno-rtti -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -g -o "./build/Target 1/.obj/Device/StdPeriph_Driver/src/stm32f10x_iwdg.o" -MMD ./Device/StdPeriph_Driver/src/stm32f10x_iwdg.c
+   at unify_builder.Program.compileByMulThread(Int32 thrNum, CmdInfo[] cmds_, List`1 errLogs)
+   at unify_builder.Program.Main(String[] args_)
+---
+In file included from ./Device/StdPeriph_Driver/src/misc.c:23:
+Device/StdPeriph_Driver/inc\misc.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+./Device/Source/system_stm32f10x.c:64:10: fatal error: 'stm32f10x.h' file not found
+   64 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_adc.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_adc.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_bkp.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_bkp.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_can.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_can.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_flash.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_flash.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_dma.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_dma.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_cec.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_cec.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_crc.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_crc.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_dbgmcu.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_dbgmcu.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_fsmc.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_fsmc.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_gpio.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_gpio.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_dac.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_dac.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_exti.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_exti.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_i2c.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_i2c.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+In file included from ./Device/StdPeriph_Driver/src/stm32f10x_iwdg.c:22:
+Device/StdPeriph_Driver/inc\stm32f10x_iwdg.h:31:10: fatal error: 'stm32f10x.h' file not found
+   31 | #include "stm32f10x.h"
+      |          ^~~~~~~~~~~~~
+1 error generated.
+
+[2026-06-30 13:06:08]	[done]
+	build successfully !
+
+[2026-06-30 13:20:55]	[info] incremental build: 6 source files changed
+These source files will be recompiled
+---
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\algorithms.c': source file has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\asr_pro.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\hc05.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\main.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\max30102.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\oled_ssd1306.c': source file has been changed.
+
+[2026-06-30 13:20:55]	compilation failed at : "c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\algorithms.c", exit code: 1
+command: 
+  "F:\Keil_v5\Core\ARM\ARMCLANG\bin\armclang.exe" --target=arm-arm-none-eabi -c -xc -std=c99 -I. -IDevice/StdPeriph_Driver/inc -ICore/Include -ICore/Source -IDevice/StdPeriph_Driver/src -IDevice/StdPeriph_Driver/templates -Icrouse.c -Icrouse.h -Ifreertos/include -Ifreertos/portable -Ifreertos/src -Ifreertos/portable/RVDS/ARM_CM3 -I.cmsis/include -I"RTE/_Target 1" -IDevice/Include -D"USE_STDPERIPH_DRIVER" -D"STM32F10X_HD" -mcpu=cortex-m3 -mlittle-endian -D__MICROLIB -O1 -ffunction-sections -funsigned-char -fshort-enums -fshort-wchar -fno-rtti -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -g -o "./build/Target 1/.obj/crouse.c/algorithms.o" -MMD ./crouse.c/algorithms.c
+   at unify_builder.Program.Main(String[] args_)
+---
+./crouse.c/algorithms.c:268:28: error: initializer element is not a compile-time constant
+  268 |     static float eff_thr = (thr < STEP_MIN_THRESH) ? STEP_MIN_THRESH : thr;
+      |                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+
+[2026-06-30 13:21:12]	[info] incremental build: 6 source files changed
+These source files will be recompiled
+---
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\algorithms.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\asr_pro.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\hc05.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\main.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\max30102.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\oled_ssd1306.c': source file has been changed.
+
+[2026-06-30 13:21:12]	compilation failed at : "c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\algorithms.c", exit code: 1
+command: 
+  "F:\Keil_v5\Core\ARM\ARMCLANG\bin\armclang.exe" --target=arm-arm-none-eabi -c -xc -std=c99 -I. -IDevice/StdPeriph_Driver/inc -ICore/Include -ICore/Source -IDevice/StdPeriph_Driver/src -IDevice/StdPeriph_Driver/templates -Icrouse.c -Icrouse.h -Ifreertos/include -Ifreertos/portable -Ifreertos/src -Ifreertos/portable/RVDS/ARM_CM3 -I.cmsis/include -I"RTE/_Target 1" -IDevice/Include -D"USE_STDPERIPH_DRIVER" -D"STM32F10X_HD" -mcpu=cortex-m3 -mlittle-endian -D__MICROLIB -O1 -ffunction-sections -funsigned-char -fshort-enums -fshort-wchar -fno-rtti -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -g -o "./build/Target 1/.obj/crouse.c/algorithms.o" -MMD ./crouse.c/algorithms.c
+   at unify_builder.Program.Main(String[] args_)
+---
+./crouse.c/algorithms.c:268:28: error: initializer element is not a compile-time constant
+  268 |     static float eff_thr = (thr < STEP_MIN_THRESH) ? STEP_MIN_THRESH : thr;
+      |                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+
+[2026-06-30 13:21:41]	[info] incremental build: 6 source files changed
+These source files will be recompiled
+---
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\algorithms.c': object (.o) file not exist
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\asr_pro.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\hc05.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\main.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\max30102.c': dependence 'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.h\algorithms.h' has been changed.
+'c:\Users\admin\OneDrive\Desktop\最小开发板\crouse.c\oled_ssd1306.c': source file has been changed.
+
+[2026-06-30 13:21:42]	[done]
+	build successfully !
+

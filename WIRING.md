@@ -1,7 +1,7 @@
 # STM32F103ZE 智能健康手环 — 接线示意图
 
-> 本接线图与 `crouse.c/` 源码、`crouse.h/*_config.h` 配置文件**逐项核对一致**。
-> 修改任何引脚时请同步更新：本文件、`README.md`、对应 `*_config.h`、`i2c_hal.c`、`keys.c`、`uart_hal.c`。
+> 本接线图与 `crouse.c/` 源码、`crouse.h/` 头文件**逐项核对一致**。
+> 修改任何引脚时请同步更新：本文件、`README.md`、对应 `crouse.h/xxx.h`、`crouse.c/i2c.c`、`crouse.c/main.c`、`crouse.c/uart.c`。
 
 ```
 STM32F103ZE                               外设模块
@@ -15,7 +15,7 @@ STM32F103ZE                               外设模块
  │                                 │    (4.7kΩ 上拉到 3.3V, 必需!)
  │                                 │
  │  PA2 ───────────────────────────┬──── RX  │  ASR PRO 语音模块
- │  PA3 ───────────────────────────┬──── TX  │  (UART2, 9600bps)
+ │  PA3 ───────────────────────────┬──── TX  │  (UART2, 115200bps)
  │                                 │
  │  PA9 ───────────────────────────┬──── RX  │  HC-05 蓝牙模块
  │  PA10 ──────────────────────────┬──── TX  │  (UART1, 9600bps, 兼调试)
@@ -59,8 +59,8 @@ STM32F103ZE                               外设模块
 |-----------|------|------|---------|------|------|
 | **PA0** | 翻页按键 (WK_UP) | 轻触按键 | GPIO | — | 开漏输出强下拉, 按下→高电平 (接 3.3V) |
 | **PA1** | DQ | DS18B20 | 1-Wire | — | **⚠️ 必须外接 4.7kΩ 上拉至 3.3V** |
-| **PA2** | TX | ASR PRO | UART2 | 9600 | STM32 TX → 模块 RX |
-| **PA3** | RX | ASR PRO | UART2 | 9600 | STM32 RX → 模块 TX |
+| **PA2** | TX | ASR PRO | UART2 | 115200 | STM32 TX → 模块 RX |
+| **PA3** | RX | ASR PRO | UART2 | 115200 | STM32 RX → 模块 TX |
 | **PA9** | TX | HC-05 | UART1 | 9600 | 启动瞬间 115200 探测, 稳态 9600 |
 | **PA10** | RX | HC-05 | UART1 | 9600 | STM32 RX → 模块 TX |
 | **PB1** | CLK | DS1302 | 三线 SPI | — | 软件模拟时序 |
@@ -72,7 +72,7 @@ STM32F103ZE                               外设模块
 | **PB14** | DAT | DS1302 | 三线 SPI | — | 软件模拟时序 |
 
 > **I2C1 重映射说明**：STM32F103 的 I2C1 默认引脚是 PB6(SCL)/PB7(SDA)。本项目通过
-> `GPIO_PinRemapConfig(GPIO_Remap_I2C1, ENABLE)`（见 `i2c_hal.c`）将其重映射到 PB8/PB9，
+> `GPIO_PinRemapConfig(GPIO_Remap_I2C1, ENABLE)`（见 `crouse.c/i2c.c`）将其重映射到 PB8/PB9，
 > 避免与板上其他外设冲突。**接线必须用 PB8/PB9，而非 PB6/PB7**。
 
 ---

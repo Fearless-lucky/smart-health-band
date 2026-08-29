@@ -1,0 +1,294 @@
+version: "4.1"
+name: TASK1
+type: ARM
+deviceName: STM32F103ZE
+packDir: .pack/Keil/STM32F1xx_DFP.2.3.0
+srcDirs:
+  - Listings
+  - freertos
+  - Objects
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders:
+    - name: .c
+      files:
+        - path: Device/StdPeriph_Driver/src/stm32f10x_tim.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_usart.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_can.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_dma.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_spi.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_fsmc.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_i2c.c
+        - path: Device/StdPeriph_Driver/src/misc.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_gpio.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_exti.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_rcc.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_adc.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_bkp.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_cec.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_crc.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_dac.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_dbgmcu.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_flash.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_iwdg.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_pwr.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_rtc.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_sdio.c
+        - path: Device/StdPeriph_Driver/src/stm32f10x_wwdg.c
+      folders: []
+    - name: .h
+      files:
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_usart.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_spi.h
+        - path: Device/StdPeriph_Driver/inc/misc.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_i2c.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_dma.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_can.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_fsmc.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_adc.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_bkp.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_cec.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_crc.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_dac.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_dbgmcu.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_exti.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_flash.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_gpio.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_iwdg.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_pwr.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_rcc.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_rtc.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_sdio.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_tim.h
+        - path: Device/StdPeriph_Driver/inc/stm32f10x_wwdg.h
+        - path: Device/StdPeriph_Driver/templates/stm32f10x_conf.h
+      folders: []
+    - name: startup
+      files:
+        - path: Device/Source/ARM/startup_stm32f10x_hd.s
+        - path: Device/Source/system_stm32f10x.c
+      folders: []
+    - name: myinclude
+      files:
+        - path: crouse.c/algorithms.c
+        - path: crouse.c/asr_pro.c
+        - path: crouse.c/ds18b20.c
+        - path: crouse.c/ds1302.c
+        - path: crouse.c/hc05.c
+        - path: crouse.c/i2c.c
+        - path: crouse.c/main.c
+        - path: crouse.c/max30102.c
+        - path: crouse.c/mpu6050.c
+        - path: crouse.c/oled_ssd1306.c
+        - path: crouse.c/systick.c
+        - path: crouse.c/uart.c
+      folders: []
+    - name: mysrc
+      files:
+        - path: crouse.h/algorithms.h
+        - path: crouse.h/asr_pro.h
+        - path: crouse.h/ds18b20.h
+        - path: crouse.h/ds1302.h
+        - path: crouse.h/hc05.h
+        - path: crouse.h/i2c.h
+        - path: crouse.h/max30102.h
+        - path: crouse.h/mpu6050.h
+        - path: crouse.h/oled_ssd1306.h
+        - path: crouse.h/systick.h
+        - path: crouse.h/uart.h
+        - path: crouse.h/globals.h
+        - path: crouse.h/font.h
+      folders: []
+    - name: FreeRtos
+      files:
+        - path: freertos/include/FreeRTOS.h
+        - path: crouse.h/FreeRTOSConfig.h
+        - path: freertos/include/atomic.h
+        - path: freertos/include/deprecated_definitions.h
+        - path: freertos/include/event_groups.h
+        - path: freertos/include/list.h
+        - path: freertos/include/message_buffer.h
+        - path: freertos/include/mpu_prototypes.h
+        - path: freertos/include/mpu_syscall_numbers.h
+        - path: freertos/include/mpu_wrappers.h
+        - path: freertos/include/newlib-freertos.h
+        - path: freertos/include/picolibc-freertos.h
+        - path: freertos/include/portable.h
+        - path: freertos/include/projdefs.h
+        - path: freertos/include/queue.h
+        - path: freertos/include/semphr.h
+        - path: freertos/include/stack_macros.h
+        - path: freertos/include/StackMacros.h
+        - path: freertos/include/stream_buffer.h
+        - path: freertos/include/task.h
+        - path: freertos/include/timers.h
+        - path: freertos/portable/RVDS/ARM_CM3/portmacro.h
+        - path: freertos/portable/RVDS/ARM_CM3/port.c
+        - path: freertos/src/event_groups.c
+        - path: freertos/src/list.c
+        - path: freertos/src/queue.c
+        - path: freertos/src/stream_buffer.c
+        - path: freertos/src/tasks.c
+        - path: freertos/src/timers.c
+        - path: freertos/src/heap_4.c
+      folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 566822272e2941f455b224ced17ba726
+targets:
+  Target 1:
+    cppPreprocessAttrs:
+      defineList:
+        - USE_STDPERIPH_DRIVER
+        - STM32F10X_HD
+      incList:
+        - .
+        - Device/StdPeriph_Driver/inc
+        - Core/Include
+        - Core/Source
+        - Device/StdPeriph_Driver/src
+        - Device/StdPeriph_Driver/templates
+        - crouse.c
+        - crouse.h
+        - freertos/include
+        - freertos/portable
+        - freertos/src
+        - freertos/portable/RVDS/ARM_CM3
+        - .cmsis/include
+        - RTE/_Target 1
+        - Device/Include
+      libList: []
+    excludeList: []
+    settings:
+      debugger: cortex-debug
+    toolchain: AC6
+    toolchainConfigMap:
+      AC6:
+        archExtensions: ""
+        cpuType: Cortex-M3
+        floatingPointHardware: none
+        options:
+          version: 3
+          afterBuildTasks: []
+          asm-compiler:
+            $use: asm-auto
+            defines: []
+            misc-controls: ""
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            language-c: c99
+            language-cpp: c++11
+            link-time-optimization: false
+            one-elf-section-per-function: true
+            optimization: level-1
+            short-enums#wchar: true
+            warnings: ac5-like-warnings
+          global:
+            output-debug-info: enable
+            use-microLIB: true
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            misc-controls: --diag_suppress=L6329
+            output-format: elf
+            ro-base: "0x08000000"
+            rw-base: "0x20000000"
+            xo-base: ""
+        scatterFilePath: ""
+        storageLayout:
+          RAM:
+            - id: 1
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 3
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 1
+              isChecked: false
+              mem:
+                size: "0x10000"
+                startAddr: "0x20000000"
+              noInit: false
+              tag: IRAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: IRAM
+          ROM:
+            - id: 1
+              isChecked: false
+              isStartup: true
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 3
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 1
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x80000"
+                startAddr: "0x8000000"
+              tag: IROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: IROM
+        useCustomScatterFile: false
+    uploadConfigMap:
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: "null"
+          vendor: "null"
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+      STLink:
+        address: "0x8000000"
+        bin: ""
+        elFile: None
+        optionBytes: .eide/target 1.st.option.bytes.ini
+        otherCmds: ""
+        proType: SWD
+        resetMode: default
+        runAfterProgram: true
+        speed: 4000
+    uploader: STLink

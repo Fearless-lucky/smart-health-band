@@ -26,3 +26,13 @@ _orig_full.txt
 task_plan.md
 findings.md
 progress.md
+
+# AI 工具配置/中间产物
+.claude/
+.codex/
+AGENTS.md
+.vscode/extensions.json
+unpacked_docx/
+b64.txt
+insert_images.py
+fig1-1_system_overview.jsx
