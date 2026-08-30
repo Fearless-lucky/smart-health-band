@@ -40,3 +40,6 @@ unpacked_docx/
 b64.txt
 insert_images.py
 fig1-1_system_overview.jsx
+
+# zig/MSVC 调试符号残留
+tests/*.pdb
