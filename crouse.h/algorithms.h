@@ -65,7 +65,7 @@ void Reset_StepCount(void);
 #define ACTIVITY_WALK_SPM_MIN      60.0f  /* 步行步频下限 steps/min */
 #define ACTIVITY_RUN_SPM_MIN       100.0f /* 跑步步频下限 steps/min */
 
-#define TEMP_BASE_OFFSET           1.5f   /* 基础温差 skin→core °C (实测偏低0.8+0.2, 由3.0回调至2.0) */
+#define TEMP_BASE_OFFSET           1.5f   /* 基础温差 skin→core °C (实测偏低0.8+0.2, 由3.0最终回调至1.5) */
 #define TEMP_AMBIENT_REF           25.0f  /* 参考环境温度 °C */
 #define TEMP_AMBIENT_COEFF         0.05f  /* 环境温度修正系数 */
 #define TEMP_OFFSET_MIN            1.5f   /* 最小补偿量 °C */

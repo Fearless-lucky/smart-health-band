@@ -47,7 +47,7 @@ static int i2c_wait(I2C_TypeDef *i2c, uint32_t flag, uint32_t timeout_ms)//等�
     return 0;
 }
 
-/* START → 发7位地址 → 等 ADDR → 清 SR2. 失败返回 -1. */
+/* START → 发7位地址 → 等 ADDR → 清 SR2. 失败返回 ERR_IO. */
 static int i2c_start_addr(I2C_TypeDef *i2c, uint16_t dev_addr, int is_read)
 {
     I2C_GenerateSTART(i2c, ENABLE);
