@@ -24,8 +24,7 @@
 - 移除计步算法中的死变量 settle_cnt
 
 ### 工程整理
-- 清理 AI 工具配置与中间产物（.claude / .codex / AGENTS.md / 解包目录等），
-  更新 .gitignore
+- 清理仓库冗余目录与中间产物（解包目录 / node_modules 等），更新 .gitignore
 - 文档与图片从仓库根目录归档至 docs/
 - 移除误提交的 node_modules
 
