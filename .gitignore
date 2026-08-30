@@ -3,6 +3,9 @@ Objects/
 Listings/
 RTE/
 
+# EIDE 构建产物 (含本机绝对路径, 不入库)
+build/
+
 # uVision GUI 状态文件 (含用户私有布局，不需要版本控制)
 *.uvguix.*
 

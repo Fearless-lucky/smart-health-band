@@ -1,6 +1,0 @@
-tool: AC6
-fileName: 'TASK1.map'
-elfName: 'TASK1.axf'
-compilerName: 'ARMCLANG 6'
-compilerFullName: 'ARMCLANG 6'
-compilerPath: 'F:\Keil_v5\Core\ARM\ARMCLANG\bin\armclang.exe'

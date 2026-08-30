@@ -1,6 +1,0 @@
-./build/Target\ 1/.obj/Device/StdPeriph_Driver/src/misc.o: \
-  Device\StdPeriph_Driver\src\misc.c Device\StdPeriph_Driver\inc\misc.h \
-  Device\Include\stm32f10x.h Core\Include\core_cm3.h \
-  Device\Include\system_stm32f10x.h \
-  Device\StdPeriph_Driver\templates\stm32f10x_conf.h \
-  Device\StdPeriph_Driver\templates\RTE_Components.h
