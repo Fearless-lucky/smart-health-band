@@ -254,7 +254,6 @@ void Step_ProcessAccel(int16_t ax, int16_t ay, int16_t az)
 {
     static float grav            = 0.0f;
     static float thr             = STEP_INIT_THRESH;
-    static uint8_t settle_cnt    = 0;
 
     uint32_t now = Systick_GetTick();
     float mag = sqrtf((float)ax * ax + (float)ay * ay + (float)az * az);

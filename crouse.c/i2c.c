@@ -6,6 +6,7 @@
  * 每次 I2C 错误后自动复位总线 (DeInit+ReInit)，保证自恢复。
  */
 #include "i2c.h"
+#include "errors.h"
 #include "stm32f10x.h"
 #include "stm32f10x_i2c.h"
 #include "stm32f10x_rcc.h"
@@ -40,8 +41,8 @@ static int i2c_wait(I2C_TypeDef *i2c, uint32_t flag, uint32_t timeout_ms)//等�
          * 一旦置位, 目标标志永远不会出现, 立即返回避免傻等满超时,
          * 由调用方触发 i2c_bus_reset() 恢复总线。 */
         if (i2c->SR1 & (I2C_SR1_AF | I2C_SR1_BERR | I2C_SR1_ARLO))//这三种错误直接报错
-            return -1;
-        if ((Systick_GetTick() - start) > timeout_ms) return -1;//超时也报错
+            return ERR_IO;
+        if ((Systick_GetTick() - start) > timeout_ms) return ERR_TIMEOUT;//超时也报错
     }
     return 0;
 }
@@ -50,10 +51,10 @@ static int i2c_wait(I2C_TypeDef *i2c, uint32_t flag, uint32_t timeout_ms)//等�
 static int i2c_start_addr(I2C_TypeDef *i2c, uint16_t dev_addr, int is_read)
 {
     I2C_GenerateSTART(i2c, ENABLE);
-    if (i2c_wait(i2c, I2C_SR1_SB, 50) != 0) return -1;
+    if (i2c_wait(i2c, I2C_SR1_SB, 50) != 0) return ERR_IO;
     I2C_Send7bitAddress(i2c, dev_addr, is_read ? I2C_Direction_Receiver
                                                : I2C_Direction_Transmitter);
-    if (i2c_wait(i2c, I2C_SR1_ADDR, 50) != 0) return -1;
+    if (i2c_wait(i2c, I2C_SR1_ADDR, 50) != 0) return ERR_IO;
     (void)i2c->SR2;
     return 0;
 }
@@ -62,9 +63,9 @@ static int i2c_xfer(I2C_TypeDef *i2c, SemaphoreHandle_t mtx,
                     uint16_t dev_addr, uint8_t reg,
                     uint8_t *data, uint16_t len, int is_read)
 {
-    int ret = -1;
-    if (!mtx) return -1;
-    if (xSemaphoreTake(mtx, pdMS_TO_TICKS(100)) != pdTRUE) return -1;//拿锁，最多等100ms（freertos独特机制）
+    int ret = ERR_IO;
+    if (!mtx) return ERR_PARAM;
+    if (xSemaphoreTake(mtx, pdMS_TO_TICKS(100)) != pdTRUE) return ERR_TIMEOUT;//拿锁，最多等100ms（freertos独特机制）
 
     /* ---- 第1阶段: 发送寄存器地址 ---- */
     if (i2c_start_addr(i2c, dev_addr, 0) != 0) goto out;

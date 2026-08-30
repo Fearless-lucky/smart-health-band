@@ -1,4 +1,5 @@
 #include "ds1302.h"
+#include "errors.h"
 #include "systick.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -79,7 +80,7 @@ int DS1302_Init(void)
     if (sec == 0xFF) {
         ce_low();
         taskEXIT_CRITICAL();
-        return -1;                      /* 通信失败, 芯片无回应 */
+        return ERR_IO;                  /* 通信失败, 芯片无回应 */
     }
     if (sec & 0x80) {                   /* CH=1, 启动晶振 */
         ce_low(); Delay_us(4); ce_high();

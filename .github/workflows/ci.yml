@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [Simple, master]
+  pull_request:
+
+jobs:
+  unit-tests:
+    name: Algorithm unit tests (host build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & run tests
+        run: make -C tests

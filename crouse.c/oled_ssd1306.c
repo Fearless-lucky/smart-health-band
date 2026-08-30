@@ -1,5 +1,6 @@
 #include "oled_ssd1306.h"
 #include "i2c.h"
+#include "errors.h"
 #include "systick.h"
 #include "algorithms.h"
 #include "ds1302.h"
@@ -34,8 +35,8 @@ static void write_cmd(uint8_t cmd)
  * 一帧 I2C2 刷新 ~30ms, 取不到锁说明另一任务卡在 OLED, 放弃本次刷新)。 */
 static int oled_lock(void)
 {
-    if (!g_oled_mutex) return -1;
-    return (xSemaphoreTake(g_oled_mutex, pdMS_TO_TICKS(100)) == pdTRUE) ? 0 : -1;
+    if (!g_oled_mutex) return ERR_IO;
+    return (xSemaphoreTake(g_oled_mutex, pdMS_TO_TICKS(100)) == pdTRUE) ? 0 : ERR_TIMEOUT;
 }
 
 static void oled_unlock(void)

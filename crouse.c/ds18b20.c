@@ -1,4 +1,5 @@
 #include "ds18b20.h"
+#include "errors.h"
 #include "systick.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -92,7 +93,7 @@ void DS18B20_StartConversion(void)
 
 int DS18B20_ReadData(float *temperature)
 {
-    if (!temperature) return -2;
+    if (!temperature) return ERR_PARAM;
 
     taskENTER_CRITICAL();
     int ok = ow_reset();
@@ -102,11 +103,11 @@ int DS18B20_ReadData(float *temperature)
         uint8_t scratch[9];
         for (int i = 0; i < 9; i++) scratch[i] = ow_read_byte();
         taskEXIT_CRITICAL();
-        if (crc8(scratch, 8) != scratch[8]) return -1;   /* CRC 校验失败 */
+        if (crc8(scratch, 8) != scratch[8]) return ERR_CRC;   /* CRC 校验失败 */
         int16_t raw = ((int16_t)scratch[1] << 8) | scratch[0];
         *temperature = raw / 16.0f;
-        return 0;
+        return ERR_OK;
     }
     taskEXIT_CRITICAL();
-    return -2;
+    return ERR_TIMEOUT;
 }

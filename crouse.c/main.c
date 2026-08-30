@@ -208,6 +208,14 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)//输出
     for (;;) {}//死循环，等看门狗复位
 }
 
+/* 空闲任务钩子: 无就绪任务时 WFI 休眠, 由任意中断 (SysTick 1ms /
+ * UART 接收等) 唤醒。降低空闲期 CPU 功耗, 不影响抢占式调度实时性。
+ * 后续可升级 STOP 模式 + MAX30102 FIFO 半满中断唤醒进一步省电。 */
+void vApplicationIdleHook(void)
+{
+    __WFI();
+}
+
 /* configASSERT 钩子: 可能在 (1) 调度器启动前 (2) UART1 已被 HC05_Init
  * 切到 9600 的运行期 两种情形触发。
  *   - 情形 1: UART1 未初始化, 必须先 UART1_Init(115200) 才能打印;

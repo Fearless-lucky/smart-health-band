@@ -1,4 +1,5 @@
 #include "uart.h"
+#include "errors.h"
 #include "stm32f10x.h"
 #include "stm32f10x_usart.h"
 #include "stm32f10x_rcc.h"
@@ -25,16 +26,16 @@ int UART1_Send(const uint8_t *data, uint16_t len)
         uint32_t t0 = Systick_GetTick();
         USART_SendData(USART1, data[i]);
         while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET) {
-            if ((Systick_GetTick() - t0) > 200) return -1;
+            if ((Systick_GetTick() - t0) > 200) return ERR_TIMEOUT;
         }
     }
     {
         uint32_t t0 = Systick_GetTick();
         while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET) {
-            if ((Systick_GetTick() - t0) > 200) return -1;
+            if ((Systick_GetTick() - t0) > 200) return ERR_TIMEOUT;
         }
     }
-    return 0;
+    return ERR_OK;
 }
 
 void UART1_Init(uint32_t baud)

@@ -1,5 +1,6 @@
 #include "max30102.h"
 #include "i2c.h"
+#include "errors.h"
 #include "systick.h"
 #include "algorithms.h"
 #include <string.h>
@@ -43,7 +44,7 @@ int MAX30102_Init(void)
     /* 器件在线校验: PART_ID(0xFF) 固定读出 0x15。
      * 不匹配说明未接线/地址错误, 直接返回, 不再做后续寄存器配置。 */
     if (read_reg(REG_PART_ID) != 0x15)
-        return -1;
+        return ERR_IO;
 
     /* 软件复位 */
     write_reg(REG_MODE_CONFIG, 0x40);
@@ -86,15 +87,15 @@ int MAX30102_ReadData(void)//从FIFO中读取数据
     uint8_t rd = read_reg(REG_FIFO_RD_PTR);//读到哪
 
     int samples = (int)((wr - rd) & 0x1F);
-    if (samples == 0) return -1;
-    if (((rd ^ wr) & 0x20) && samples > 0) return -1;   /* OVR 置位: 数据已丢失,弃帧 */
+    if (samples == 0) return ERR_NO_DATA;
+    if (((rd ^ wr) & 0x20) && samples > 0) return ERR_NO_DATA;   /* OVR 置位: 数据已丢失,弃帧 */
 
     /* 一次性读取全部可用样本 (每样本 6 字节: R[18:0] + IR[18:0]) */
     uint8_t raw[192];//最多6×32=192字节
     int to_read = samples * 6;
 
     if (I2C_ReadReg(MAX30102_I2C_ADDR, REG_FIFO_DATA, raw, to_read) != 0)
-        return -2;
+        return ERR_IO;
 
     /* 解码到临时数组 (栈上最大 32 元素 × 2 通道) */
     int32_t ir_dec[32], red_dec[32];

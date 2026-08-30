@@ -10,6 +10,10 @@ RTE/
 __pycache__/
 *.pyc
 
+# 单元测试构建产物
+tests/test_algorithms
+tests/*.exe
+
 # 临时文件
 nul
 *.bak
